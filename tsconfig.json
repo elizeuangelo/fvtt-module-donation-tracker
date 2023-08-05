@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+      "types": ["@league-of-foundry-developers/foundry-vtt-types"],
+      "lib": ["ESNEXT", "DOM", "DOM.Iterable"],
+      "target": "ESNEXT",
+      "module": "ESNEXT",
+      //"strict": true,
+      "strictNullChecks": true,
+      "alwaysStrict": true,
+      "removeComments": true,
+      "moduleResolution": "node",
+      "resolveJsonModule": true,
+      "allowSyntheticDefaultImports": true,
+    },
+}

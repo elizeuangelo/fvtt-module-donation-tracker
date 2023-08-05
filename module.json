@@ -1,0 +1,21 @@
+{
+	"id": "donation-tracker",
+	"title": "Donation Tracker",
+	"description": "Communicates with the Donation Tracker API.",
+	"version": "1.0.0",
+	"authors": [
+		{
+			"name": "elizeuangelo"
+		}
+	],
+	"esmodules": ["./main.js"],
+	"styles": ["./style.css"],
+	"compatibility": {
+		"minimum": 11,
+		"verified": "11.307"
+	},
+	"url": "https://github.com/elizeuangelo/fvtt-module-donation-tracker",
+	"changelog": "https://raw.githubusercontent.com/elizeuangelo/fvtt-module-donation-tracker/master/releases.md",
+	"manifest": "https://github.com/elizeuangelo/fvtt-module-donation-tracker/releases/latest/download/module.json",
+	"download": "https://github.com/elizeuangelo/fvtt-module-donation-tracker/releases/latest/download/module.zip"
+}

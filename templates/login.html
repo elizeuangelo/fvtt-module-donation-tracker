@@ -1,0 +1,41 @@
+<form autocomplete="off">
+	<!-- Navigation -->
+	<nav class="tabs" data-group="primary" style="display: none">
+		<a class="item" data-tab="main"> 1</a>
+		<a class="item" data-tab="confirmation"> 2</a>
+		<a class="item" data-tab="finish"> 3</a>
+	</nav>
+
+	<!-- Send Email Tab -->
+	<div class="tab" data-group="primary" data-tab="main">
+		<p>There are no emails linked to your account.</p>
+		<p>Please enter your email to register:</p>
+		<input
+			name="email"
+			class="send-email"
+			type="text"
+			pattern="^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$"
+			required />
+
+		<!-- FOOTER BUTTONS -->
+		<div class="footer-buttons">
+			<button id="email" type="button" data-action="send-email"><i class="far fa-envelope"></i> Send Code</button>
+		</div>
+	</div>
+
+	<!-- Confirmation Tab -->
+	<div class="tab" data-group="primary" data-tab="confirmation">
+		<p>Please enter the code you received in your email:</p>
+		<input name="code" class="confirm-code" type="text" pattern="[a-zA-Z0-9_-]{6}" maxlength="6" size="15" required />
+
+		<!-- FOOTER BUTTONS -->
+		<div class="footer-buttons">
+			<button id="code" type="button" data-action="confirm-code"><i class="far fa-check"></i> Confirm Code</button>
+		</div>
+	</div>
+
+	<!-- Confirmation Tab -->
+	<div class="tab" data-group="primary" data-tab="finish">
+		<p>Success!</p>
+	</div>
+</form>
