@@ -13,12 +13,11 @@ export function updateButton() {
 
 export function createButton(html: JQuery<HTMLElement>) {
 	const btn = $(/*html*/ `<button id="dt-btn"></button>`);
-	html.find('#settings-documentation').append(btn);
+	html.find('#settings-game').append(btn);
 
 	btn.on('click', () => {
 		if (API.isAdmin()) new Dashboard().render(true);
-		else if (API.getEmail()) {
-		} else new LoginApp().render(true);
+		else new LoginApp().render(true);
 	});
 
 	updateButton();

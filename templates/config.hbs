@@ -1,0 +1,50 @@
+<form autocomplete="off">
+
+    <div class="form-group">
+        <label>Period</label>
+        <input name="period" type="text" value="{{period}}" pattern="([0-9]+) ?(d|w|m).*" required>
+        <p class="notes">Set the table period to use as reference: "30 days", "2 weeks", "2 months" are all valid examples.</p>
+    </div>
+
+    <div class="form-group">
+        <label>Base Currency</label>
+        <select name="base-currency">
+            {{#each currency}}
+            <option value="{{id}}" {{#if (eq id ../selected)}}selected{{/if}}>{{name}}</option>
+            {{/each}}
+        </select>
+    </div>
+
+    <hr>
+
+	<table id="membership">
+		<thead>
+			<tr>
+                <th>Tier</th>
+				<th>Name</th>
+				<th>Accrued</th>
+                <th>Members (est.)</th>
+				<th><a title="Create" class="fa fa-plus" data-action="add"></a></th>
+			</tr>
+		</thead>
+		<tbody style="text-align: center">
+			{{#each table}}
+			<tr data-entry="{{@index}}">
+                <td>{{@index}}</td>
+				<td>{{name}}</td>
+				<td>{{accrued}}</td>
+                <td style="font-weight:bold">{{members}} {{#if base}}or more{{/if}}</td>
+				<td style="letter-spacing: 0.2em">
+					<a title="Modify" class="fa fa-list" data-action="modify"></a>
+					<a title="Remove" class="fa fa-close" data-action="delete"></a>
+				</td>
+			</tr>
+			{{/each}}
+		</tbody>
+	</table>
+
+	<!-- FOOTER BUTTONS -->
+	<div class="footer-buttons">
+        <button type="submit" name="submit" class="default"><i class="far fa-table"></i>Implement Membership System</button>
+	</div>
+</form>

@@ -19,7 +19,17 @@ const settings = {
         config: false,
         type: String,
         default: '',
-        onchange: updateButton,
+        onChange: updateButton,
+    },
+    membershipLevels: {
+        scope: 'world',
+        config: false,
+        type: Object,
+        default: {
+            base_currency: 'USD',
+            period: '30 days',
+            levels: [],
+        },
     },
 };
 export function getSetting(name) {

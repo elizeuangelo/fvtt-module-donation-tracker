@@ -1,0 +1,43 @@
+<form autocomplete="off">
+	<!-- Navigation -->
+	<nav class="tabs" data-group="primary">
+		<a class="item" data-tab="members">Members</a>
+		<a class="item" data-tab="donations">Donations</a>
+        {{#if admin}}<a class="item" data-tab="server">Server</a>{{/if}}
+	</nav>
+
+    <!-- Members Tab -->
+	<div class="tab" data-group="primary" data-tab="members">
+		<table id="members">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Membership</th>
+                    <th>Donations (period)</th>
+                    <th>Donations (all-time)</th>
+                    <th><a class="fas fa-cog" data-action="members-config"></a></th>
+                </tr>
+            </thead>
+            <tbody style="text-align: center">
+                {{#each members}}
+                <tr data-entry="{{email}}">
+                    <td>{{email}}</td>
+                    <td>{{membership}}</td>
+                    <td>{{donated}}</td>
+                    <td>{{donatedAll}}</td>
+                    <td><a class="fas fa-eye"></a></td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+	</div>
+
+    <!-- Donations Tab -->
+	<div class="tab" data-group="primary" data-tab="donations">
+    </div>
+
+    <!-- Server Tab -->
+	<div class="tab" data-group="primary" data-tab="server">
+        <p style="text-align:center;width:50%;margin-left: 25%;"><span style="color:red;font-weight:bold">CAUTION: </span>Operations done here might be irreversible.</p>
+    </div>
+</form>

@@ -8,8 +8,13 @@
 
 	<!-- Send Email Tab -->
 	<div class="tab" data-group="primary" data-tab="main">
+		{{#if expired}}
+		<p>Your session has expired.</p>
+		<p>Please login with your email:</p>
+		{{else}}
 		<p>There are no emails linked to your account.</p>
 		<p>Please enter your email to register:</p>
+		{{/if}}
 		<input
 			name="email"
 			class="send-email"
@@ -30,12 +35,33 @@
 
 		<!-- FOOTER BUTTONS -->
 		<div class="footer-buttons">
-			<button id="code" type="button" data-action="confirm-code"><i class="far fa-check"></i> Confirm Code</button>
+			<button id="email" type="button" data-action="send-email"><i class="far fa-envelope-dot"></i> Resend Code</button>
+			<button id="code" type="button" data-action="confirm-code">
+				<i class="far fa-envelope-circle-check"></i> Confirm Code
+			</button>
 		</div>
 	</div>
 
 	<!-- Confirmation Tab -->
 	<div class="tab" data-group="primary" data-tab="finish">
-		<p>Success!</p>
+		<p>You have registered an account for:</p>
+		<div class="form-group">
+			<label>Email</label>
+			<input id="account-email" type="text" value="{{email}}" disabled />
+		</div>
+		<div class="form-group">
+			<label>User</label>
+			<input id="account-name" type="text" value="{{name}}" disabled />
+		</div>
+		<div class="form-group">
+			<label>Membership</label>
+			<input id="account-membership" type="text" value="{{membership}}" disabled />
+		</div>
+
+		<!-- FOOTER BUTTONS -->
+		<div class="footer-buttons">
+			<button type="button" data-action="logout"><i class="far fa-undo"></i> Log out</button>
+			<button type="button" data-action="close"><i class="far fa-close"></i> Close</button>
+		</div>
 	</div>
 </form>

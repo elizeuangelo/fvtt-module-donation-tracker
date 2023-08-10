@@ -1,3 +1,4 @@
+import { Membership } from './membership.js';
 import { updateButton } from './settings-button.js';
 
 export const MODULE_ID = 'donation-tracker';
@@ -21,7 +22,17 @@ const settings = {
 		config: false,
 		type: String,
 		default: '',
-		onchange: updateButton,
+		onChange: updateButton,
+	},
+	membershipLevels: {
+		scope: 'world',
+		config: false,
+		type: Object,
+		default: {
+			base_currency: 'USD',
+			period: '30 days',
+			levels: [],
+		} as Membership,
 	},
 };
 

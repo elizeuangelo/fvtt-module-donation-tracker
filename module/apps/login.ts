@@ -1,4 +1,5 @@
 import { PATH, setSetting } from '../settings.js';
+import { myMembershipLevel } from '../membership.js';
 import * as API from '../api.js';
 
 export class LoginApp extends Application {
@@ -7,8 +8,8 @@ export class LoginApp extends Application {
 			id: 'dt-login',
 			title: `Register your Email`,
 			classes: ['sheet'],
-			template: `${PATH}/templates/login.html`,
-			tabs: [{ navSelector: '.tabs[data-group=primary]', contentSelector: 'form', initial: 'main' }],
+			template: `${PATH}/templates/login.hbs`,
+			tabs: [{ navSelector: '.tabs[data-group=primary]', contentSelector: 'form' }],
 			width: 400,
 			height: 'auto',
 		}) as FormApplicationOptions;
@@ -25,6 +26,7 @@ export class LoginApp extends Application {
 			const res = await API.requestCode(email);
 			if (!res.ok) throw new Error(`Server returned err ${res.status}: ${res.statusText}`);
 			this.activateTab('confirmation');
+			ui.notifications.info(`Email sent!`);
 		} catch {
 			ui.notifications.error('Some error ocurred when sending the email');
 		} finally {
@@ -39,14 +41,20 @@ export class LoginApp extends Application {
 		try {
 			const res = await API.verifyCode(this.email!, code);
 			if (!res.ok) {
-				if (res.status !== 400) {
+				if (res.status !== 401) {
 					throw new Error(`Server returned err ${res.status}: ${res.statusText}`);
 				}
-				ui.notifications.error(`The code is invalid or has expired`);
+				ui.notifications.error(`The code is incorrect or has expired`);
 			} else {
 				const { token } = await res.json();
-				setSetting('token', token);
+				await setSetting('token', token);
+				const info = API.getTokenInformation()!;
+				this.element.find('#account-email').val(info.email);
+				this.element.find('#account-name').val(game.users.get(info.id!)?.name ?? '<unknown>');
+				this.element.find('#account-membership').val('Loading...');
 				this.activateTab('finish');
+				const user = await myMembershipLevel();
+				this.element.find('#account-membership').val(user?.membership?.name ?? 'None');
 			}
 		} catch {
 			ui.notifications.error('Some error ocurred when confirming the code');
@@ -55,17 +63,38 @@ export class LoginApp extends Application {
 		}
 	}
 
+	async logout() {
+		await setSetting('token', '');
+		this.activateTab('main');
+		this.render();
+	}
+
 	// ------------------------------------- //
 
 	override activateListeners(html: JQuery<HTMLElement>): void {
 		super.activateListeners(html);
 		const actions: Record<string, (el: HTMLElement) => void> = {
 			'send-email': this.sendEmail,
-			'confirm-code': () => {},
+			'confirm-code': this.confirmCode,
+			logout: this.logout,
+			close: this.close,
 		};
 		html.find('[data-action]').each((idx, el) =>
 			el.addEventListener('click', () => actions[el.dataset.action!].call(this, el))
 		);
+		if (!API.isValid()) return;
+		setTimeout(() => this.activateTab('finish'), 0);
+	}
+
+	override async getData(_options) {
+		const info = API.getTokenInformation();
+		const name = info?.name ?? info?.id ? game.users.get(info.id!)?.name ?? '<unknown>' : null;
+		return {
+			name,
+			membership: (await myMembershipLevel())?.membership?.name ?? 'None',
+			email: info?.email ?? '',
+			expired: !API.isValid(),
+		};
 	}
 
 	override async close() {

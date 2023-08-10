@@ -1,6 +1,5 @@
 #dt-login form {
     text-align: center;
-    padding: 10px;
 }
 
 #dt-login form .send-email {
@@ -16,5 +15,22 @@
 }
 
 #dt-login form .footer-buttons {
+    display: flex;
     margin-top: 10px;
+}
+
+.donation-tracker .tabs .item {
+    width: 50%;
+    border-bottom: 3px solid #b5b3a4;
+}
+
+.donation-tracker .tabs .item.active {
+    border-bottom: 3px solid #44191A;
+    text-shadow:none;
+}
+
+.donation-tracker td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }

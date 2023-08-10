@@ -8,6 +8,7 @@ declare global {
 	interface Window {
 		ForgeVTT: any;
 	}
+	var objectsEqual: (a, b) => boolean;
 }
 
 export {};
