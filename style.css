@@ -14,7 +14,7 @@
     width: auto;
 }
 
-#dt-login form .footer-buttons {
+#dt-login form .footer-buttons, .donation-tracker form .footer-buttons {
     display: flex;
     margin-top: 10px;
 }
@@ -33,4 +33,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.donation-tracker div.table {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.donation-tracker div.table thead tr {
+    position: sticky;
+    top: 0;
+}
+
+.donation-tracker .summary {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
 }

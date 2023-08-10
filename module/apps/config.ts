@@ -1,6 +1,7 @@
 import { MembershipEntry, calcMembershipLevel, getMembersData, parseMembers } from '../membership.js';
 import { PATH, getSetting, setSetting } from '../settings.js';
 import * as API from '../api.js';
+import { Dashboard } from './dashboard.js';
 
 const CURRENCIES = [
 	{
@@ -31,7 +32,7 @@ export class DTConfig extends FormApplication<any, any, any> {
 	}
 
 	preview = deepClone(getSetting('membershipLevels'));
-	members: Awaited<ReturnType<typeof API.allDonations>>;
+	donations: Awaited<ReturnType<typeof API.allDonations>>;
 	rates: Awaited<ReturnType<typeof API.rates>>;
 
 	async addEntry(
@@ -105,7 +106,7 @@ export class DTConfig extends FormApplication<any, any, any> {
 	async modifyEntry(el: HTMLElement) {
 		const idx = +el.closest('tr')!.dataset.entry!;
 		const entry = this.preview.levels[idx];
-		this.addEntry(el, Object.assign({}, entry));
+		this.addEntry(el, entry);
 	}
 	async deleteEntry(el: HTMLElement) {
 		const idx = +el.closest('tr')!.dataset.entry!;
@@ -133,10 +134,19 @@ export class DTConfig extends FormApplication<any, any, any> {
 			this.preview.base_currency = ev.currentTarget.value;
 			this.render();
 		});
+		html.find('input[name=period]').on('change', (ev) => {
+			const input = ev.currentTarget as HTMLInputElement;
+			if (!input.checkValidity()) {
+				ui.notifications.error('Invalid period input');
+				return;
+			}
+			this.preview.period = input.value;
+			this.render();
+		});
 	}
 
 	override async getData(_options) {
-		const memberships = Object.values(getMembersData(this.members)).map((data) =>
+		const memberships = Object.values(getMembersData(this.donations)).map((data) =>
 			calcMembershipLevel(data, this.rates, this.preview)
 		);
 
@@ -164,6 +174,7 @@ export class DTConfig extends FormApplication<any, any, any> {
 		if (confirm) {
 			setSetting('membershipLevels', this.preview);
 			ui.notifications.info('Membership table updated');
+			new Dashboard().render(true);
 		}
 	}
 }

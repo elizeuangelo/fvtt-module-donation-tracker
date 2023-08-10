@@ -69,14 +69,16 @@ export function parseMembers() {}
 export function calcMembershipLevel(data: Member, rates: Rates, membershipLevels = getSetting('membershipLevels')) {
 	if (rates.base !== membershipLevels.base_currency) convertRates(rates, membershipLevels.base_currency);
 
-	const since = parseTime(membershipLevels.period);
-	if (!since) throw new Error('Bad membership period');
+	const period = parseTime(membershipLevels.period);
+	if (!period) throw new Error('Bad membership period');
+
+	const since = Date.now() - period;
 
 	let donated = 0,
 		donatedAll = 0;
 
 	data.kofi?.donations.forEach((entry) => {
-		const value = +entry.amount * rates.rates[entry.currency];
+		const value = +entry.amount / rates.rates[entry.currency];
 		donatedAll += value;
 		const date = new Date(entry.timestamp).getTime();
 		if (date < since) return;
@@ -84,13 +86,13 @@ export function calcMembershipLevel(data: Member, rates: Rates, membershipLevels
 	});
 
 	data.manual?.donations.forEach((entry) => {
-		const value = +entry.amount * rates.rates[entry.currency];
+		const value = +entry.amount / rates.rates[entry.currency];
 		donatedAll += value;
 		if (entry.timestamp < since) return;
 		donated += value;
 	});
 
-	const membership = membershipLevels.levels.findLast((entry) => entry.accrued < donated) ?? null;
+	const membership = membershipLevels.levels.findLast((entry) => entry.accrued <= donated) ?? null;
 
 	return { membership, donated, donatedAll };
 }

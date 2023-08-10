@@ -8,36 +8,87 @@
 
     <!-- Members Tab -->
 	<div class="tab" data-group="primary" data-tab="members">
-		<table id="members">
-            <thead>
-                <tr>
-                    <th>Email</th>
-                    <th>Membership</th>
-                    <th>Donations (period)</th>
-                    <th>Donations (all-time)</th>
-                    <th><a class="fas fa-cog" data-action="members-config"></a></th>
-                </tr>
-            </thead>
-            <tbody style="text-align: center">
-                {{#each members}}
-                <tr data-entry="{{email}}">
-                    <td>{{email}}</td>
-                    <td>{{membership}}</td>
-                    <td>{{donated}}</td>
-                    <td>{{donatedAll}}</td>
-                    <td><a class="fas fa-eye"></a></td>
-                </tr>
-                {{/each}}
-            </tbody>
-        </table>
+		<div class="table">
+            <table id="members">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Membership</th>
+                        <th>Donations (period)</th>
+                        <th>Donations (all-time)</th>
+                        <th><a class="fas fa-cog" data-action="members-config"></a></th>
+                    </tr>
+                </thead>
+                <tbody style="text-align: center">
+                    {{#each members}}
+                    <tr>
+                        <td>{{email}}</td>
+                        <td>{{membership}}</td>
+                        <td>{{donatedParsed}}</td>
+                        <td>{{donatedAllParsed}}</td>
+                        <td><a class="fas fa-eye" data-action="view-member" data-entry="{{email}}"></a></td>
+                    </tr>
+                    {{/each}}
+                </tbody>
+            </table>
+        </div>
+        <hr>
+        <div class="summary">
+            <span>Members active ({{period}}): <b>{{summary.membersLastPeriod}}</b></span>
+            <span>Members total: <b>{{summary.membersTotal}}</b></span>
+        </div>
 	</div>
 
     <!-- Donations Tab -->
 	<div class="tab" data-group="primary" data-tab="donations">
+        <div class="table">
+            <table id="donations">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Membership</th>
+                        <th>Donations (period)</th>
+                        <th>Donations (all-time)</th>
+                        <th><a title="Create" class="fa fa-plus" data-action="add"></a></th>
+                    </tr>
+                </thead>
+                <tbody style="text-align: center">
+                    {{#each donations}}
+                    <tr>
+                        <td>{{email}}</td>
+                        <td>{{membership}}</td>
+                        <td>{{donated}}</td>
+                        <td>{{donatedAll}}</td>
+                        <td>
+                            {{#if mutate}}
+                            <a title="Modify" class="fa fa-list" data-action="modify" data-entry="{{email}}"></a>
+                            <a title="Remove" class="fa fa-close" data-action="remove" data-entry="{{email}}"></a>
+                            {{/if}}
+                        </td>
+                    </tr>
+                    {{/each}}
+                </tbody>
+            </table>
+        </div>
+
+        <hr>
+        <div class="summary">
+            <span>Donations ({{period}}): <b>{{summary.donationsLastPeriod}}</b></span>
+            <span>Donations total: <b>{{summary.donationsTotal}}</b></span>
+        </div>
+        <div class="footer-buttons">
+            <button type="button"><i class="far fa-table"></i> Import Kofi CSV</button>
+        </div>
     </div>
 
     <!-- Server Tab -->
 	<div class="tab" data-group="primary" data-tab="server">
         <p style="text-align:center;width:50%;margin-left: 25%;"><span style="color:red;font-weight:bold">CAUTION: </span>Operations done here might be irreversible.</p>
+        <hr>
+        <div class="footer-buttons">
+            <button type="button"><i class="far fa-radar"></i> Check for Updates</button>
+            <button type="button"><i class="far fa-server"></i> Restart Server</button>
+            <button type="button"><i class="far fa-upload"></i> Upload new Configuration</button>
+        </div>
     </div>
 </form>

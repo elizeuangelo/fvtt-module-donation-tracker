@@ -1,5 +1,6 @@
 import { calcMembershipLevel, getMembersData } from '../membership.js';
 import { PATH, getSetting, setSetting } from '../settings.js';
+import { Dashboard } from './dashboard.js';
 const CURRENCIES = [
     {
         id: 'USD',
@@ -27,7 +28,7 @@ export class DTConfig extends FormApplication {
         });
     }
     preview = deepClone(getSetting('membershipLevels'));
-    members;
+    donations;
     rates;
     async addEntry(_el, entry = {
         id: randomID(),
@@ -94,7 +95,7 @@ export class DTConfig extends FormApplication {
     async modifyEntry(el) {
         const idx = +el.closest('tr').dataset.entry;
         const entry = this.preview.levels[idx];
-        this.addEntry(el, Object.assign({}, entry));
+        this.addEntry(el, entry);
     }
     async deleteEntry(el) {
         const idx = +el.closest('tr').dataset.entry;
@@ -116,9 +117,18 @@ export class DTConfig extends FormApplication {
             this.preview.base_currency = ev.currentTarget.value;
             this.render();
         });
+        html.find('input[name=period]').on('change', (ev) => {
+            const input = ev.currentTarget;
+            if (!input.checkValidity()) {
+                ui.notifications.error('Invalid period input');
+                return;
+            }
+            this.preview.period = input.value;
+            this.render();
+        });
     }
     async getData(_options) {
-        const memberships = Object.values(getMembersData(this.members)).map((data) => calcMembershipLevel(data, this.rates, this.preview));
+        const memberships = Object.values(getMembersData(this.donations)).map((data) => calcMembershipLevel(data, this.rates, this.preview));
         return {
             currency: CURRENCIES,
             selected: this.preview.base_currency,
@@ -142,6 +152,7 @@ export class DTConfig extends FormApplication {
         if (confirm) {
             setSetting('membershipLevels', this.preview);
             ui.notifications.info('Membership table updated');
+            new Dashboard().render(true);
         }
     }
 }
