@@ -1,8 +1,9 @@
 import { getTokenInformation } from '../api.js';
-import { PATH, getSetting } from '../settings.js';
-import { DTConfig } from './config.js';
+import { PATH, getSetting, setSetting } from '../settings.js';
+import { CURRENCIES, DTConfig } from './config.js';
 import * as API from '../api.js';
 import { calcMembershipLevel, getMembersData } from '../membership.js';
+import { parseTime, readFile, sleep } from '../utils.js';
 
 export class Dashboard extends Application {
 	static get defaultOptions() {
@@ -12,26 +13,29 @@ export class Dashboard extends Application {
 			classes: ['sheet', 'donation-tracker'],
 			template: `${PATH}/templates/dashboard.hbs`,
 			tabs: [{ navSelector: '.tabs[data-group=primary]', contentSelector: 'form' }],
-			width: 700,
+			width: 800,
 			height: 'auto',
 		}) as FormApplicationOptions;
 	}
 
+	members: ReturnType<typeof getMembersData>;
+	users: Awaited<ReturnType<typeof API.getUsers>>;
 	donations: Awaited<ReturnType<typeof API.allDonations>>;
 	rates: Awaited<ReturnType<typeof API.rates>>;
-	members: ReturnType<typeof getMembersData>;
 
 	async refreshData(target?: HTMLElement) {
 		if (target) target.querySelector('i')?.classList.add('fa-spin');
-		const promises = [API.allDonations(), API.rates()] as const;
-		const [allDonations, rates] = await Promise.all(promises);
+		const promises = [API.getUsers(), API.allDonations(), API.rates()] as const;
+		const [users, allDonations, rates] = await Promise.all(promises);
+		this.users = users;
 		this.donations = allDonations;
 		this.rates = rates;
 		if (target) target.querySelector('i')?.classList.remove('fa-spin');
 	}
 
-	viewMember(email: string) {
-		const donations = [...(this.members[email].kofi?.donations ?? []), ...(this.members[email].manual?.donations ?? [])]
+	viewMember(el: HTMLElement) {
+		const email = el.dataset.entry!;
+		const donations = [...this.members[email].kofi, ...this.members[email].manual]
 			.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 			.map((e) => ({
 				...e,
@@ -89,6 +93,194 @@ export class Dashboard extends Application {
 		).render(true);
 	}
 
+	async addDonation(
+		_el: HTMLElement,
+		entry = {
+			new: true,
+			id: randomID(),
+			timestamp: Date.now(),
+			email: '',
+			currency: getSetting('membershipLevels').base_currency,
+			amount: '1.00',
+			comment: '',
+		}
+	) {
+		return new Dialog({
+			title: `Donation: ${entry.id}`,
+			content: Handlebars.compile(/*html*/ `
+                <form autocomplete="off">
+                    <div class="form-group">
+                        <label>Timestamp</label>
+                        <input type="datetime-local" name="timestamp" value="{{timestamp}}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="text" name="email" value="{{email}}" pattern="^[a-zA-Z0-9.!#$%&'*+/=?^_\`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Amount</label>
+                        <input type="number" name="amount" step="0.01"  min="0.01" value="{{amount}}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Currency</label>
+                        <select name="currency">
+                            {{#each currency}}
+                            <option value="{{id}}" {{#if (eq id ../selected)}}selected{{/if}}>{{name}}</option>
+                            {{/each}}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Comment</label>
+                        <textarea name="comment" rows="6">{{comment}}</textarea>
+                    </div>
+                </form>
+            `)(
+				{
+					...entry,
+					currency: CURRENCIES,
+					selected: entry.currency,
+					timestamp: new Date(entry.timestamp).toISOString().slice(0, 16),
+				},
+				{
+					allowProtoMethodsByDefault: true,
+					allowProtoPropertiesByDefault: true,
+				}
+			),
+			default: 'ok',
+			close: () => null,
+			render: (html) => {},
+			buttons: {
+				ok: {
+					icon: '<i class="fas fa-check"></i>',
+					label: entry.new ? 'Create' : 'Update',
+					callback: async (html) => {
+						const form = html[0].querySelector('form');
+						if (form.checkValidity() === false) {
+							ui.notifications.error('Invalid form');
+							throw new Error('Invalid form');
+						}
+						const data = new FormData(form);
+						entry.timestamp = new Date(data.get('timestamp') as string).getTime();
+						entry.email = data.get('email') as string;
+						entry.currency = data.get('currency') as string;
+						entry.amount = (+(data.get('amount') as string)).toFixed(2);
+						entry.comment = data.get('comment') as string;
+
+						const entryData = {
+							id: entry.id,
+							timestamp: entry.timestamp,
+							email: entry.email,
+							currency: entry.currency,
+							amount: entry.amount,
+							comment: entry.comment,
+							last_modified_at: Date.now(),
+							last_modified_by: API.getTokenInformation()!.name!,
+						};
+
+						const res = await (entry.new ? API.addDonations([entryData]) : API.modifyDonations([entryData]));
+						if (res[0] === false) {
+							ui.notifications.error(`Failed to ${entry.new ? 'create' : 'update'} donation entry`);
+							return;
+						}
+
+						if (entry.new) {
+							this.donations.manual[entry.email] ??= { email: entry.email, donations: [] };
+							this.donations.manual[entry.email].donations.push(entryData);
+						} else {
+							const realEntry = this.donations.manual[entry.email].donations.find((e) => e.id === entry.id)!;
+							Object.assign(realEntry, entryData);
+						}
+
+						ui.notifications.info(`Donation ${entry.new ? 'created' : 'modified'}`);
+
+						this.render();
+					},
+				},
+			},
+		}).render(true);
+	}
+
+	async modifyDonation(el: HTMLElement) {
+		const { id, email } = el.parentElement!.dataset as { email: string; id: string };
+		const entry = this.donations.manual[email].donations.find((d) => d.id === id)!;
+		return this.addDonation(el, { ...entry, new: false });
+	}
+
+	async removeDonation(el: HTMLElement) {
+		const { id, email } = el.parentElement!.dataset as { email: string; id: string };
+		const entry = this.donations.manual[email].donations.find((d) => d.id === id)!;
+		const confirm = await Dialog.confirm({
+			title: 'Confirm Deletion',
+			content: `<p style="text-align:center">Are you sure you want to delete the donation of <b>${entry.amount} ${entry.currency}</b> from <b>${email}</b>?</p>`,
+		});
+		if (!confirm) return;
+		const [success] = await API.deleteDonations([id]);
+		if (success) {
+			const idx = this.donations.manual[email].donations.indexOf(entry);
+			this.donations.manual[email].donations.splice(idx, 1);
+			this.render();
+		}
+	}
+
+	async uploadConfig() {
+		const confirm = await Dialog.confirm({
+			title: 'Confirm Configuration Upload',
+			content: `<p style="text-align:center">Are you sure you to upload a new configuration file?</p>
+                    <p style="text-align:center">A bad configuration might crash the server or cause instabilities.</p>`,
+		});
+		if (!confirm) return;
+
+		const data = await readFile();
+		if (typeof data?.data !== 'string') {
+			ui.notifications.error('Bad configuration file');
+			return;
+		}
+		const config = JSON.parse(data.data);
+		const res = await API.serverConfig(config);
+		if (!res.ok) {
+			ui.notifications.info('Some issue happened while uploading the configuration file');
+			return;
+		}
+		ui.notifications.info(`File uploaded with success: ${data.file.name}`);
+	}
+
+	async restartServer() {
+		const confirm = await Dialog.confirm({
+			title: 'Confirm Server Restart',
+			content: `<p style="text-align:center">Are you sure you want to restart the server?</p>`,
+		});
+		if (!confirm) return;
+		const restarting = (await API.serverRestart()) === 'true';
+		if (!restarting) {
+			ui.notifications.error('Server failed to restart');
+			return;
+		}
+		ui.notifications.info('Server is restarting... please wait');
+		await sleep(7000);
+		const check = (await API.serverCheck()) === 'true';
+		if (check) ui.notifications.info('Server successfully restarted');
+		return check;
+	}
+
+	async updateServer() {
+		const { current, update } = await API.serverVersion();
+
+		const confirm = await Dialog.confirm({
+			title: 'Confirm Server Update',
+			content: `<p style="text-align:center">Update from <b>${current}</b> to <b>${update}</b>?</p>`,
+		});
+		if (!confirm) return;
+		const res = await API.serverUpdate();
+		if (!res.ok) {
+			let msg = 'Some issue happened while updating';
+			if (res.status === 423) msg = 'Server is already updating, please wait';
+			ui.notifications.info(msg);
+			return;
+		}
+		ui.notifications.info('Server is restarting... please wait');
+		return;
+	}
+
 	// ------------------------------------- //
 
 	protected override _getHeaderButtons(): Application.HeaderButton[] {
@@ -110,13 +302,17 @@ export class Dashboard extends Application {
 		const actions: Record<string, (el: HTMLElement) => void> = {
 			'members-config': () => {
 				const cfg = new DTConfig();
-				cfg.donations = this.donations;
+				cfg.members = this.members;
 				cfg.rates = this.rates;
 				cfg.render(true);
 			},
-			'view-member': (el) => {
-				this.viewMember(el.dataset.entry!);
-			},
+			'view-member': this.viewMember,
+			'add-donation': this.addDonation,
+			'remove-donation': this.removeDonation,
+			'modify-donation': this.modifyDonation,
+			'upload-config': this.uploadConfig,
+			restart: this.restartServer,
+			update: this.updateServer,
 		};
 		html.find('[data-action]').each((idx, el) =>
 			el.addEventListener('click', () => actions[el.dataset.action!].call(this, el))
@@ -124,14 +320,16 @@ export class Dashboard extends Application {
 	}
 
 	override async getData(_options) {
-		if (!this.donations || !this.rates) await this.refreshData();
+		if (!this.members || !this.rates) await this.refreshData();
 		const membershipLevels = getSetting('membershipLevels');
-		this.members = getMembersData(this.donations);
+		this.members = getMembersData(this.users, this.donations);
 
 		const members = Object.values(this.members)
 			.map((data) => {
 				const membership = calcMembershipLevel(data, this.rates, membershipLevels);
 				return {
+					name: data.name + `${data.admin ? ' <admin>' : ''}`,
+					last_login: new Date(data.last_login).toLocaleString(),
 					email: data.email,
 					membership: membership.membership?.name ?? '<None>',
 					donated: membership.donated,
@@ -149,22 +347,47 @@ export class Dashboard extends Application {
 			.sort((a, b) => b.donated - a.donated);
 
 		const info = getTokenInformation()!;
+		const canMutate = info.perms!.includes('mutate');
+		const since = Date.now() - parseTime(membershipLevels.period)!;
+
+		const donations = [...Object.values(this.donations.kofi), ...Object.values(this.donations.manual)]
+			.map((d) => d.donations)
+			.flat()
+			.sort((a, b) => b.timestamp - a.timestamp)
+			.map((d) => ({
+				in_period: d.timestamp > since,
+				timestamp: new Date(d.timestamp).toLocaleString(),
+				email: d.email,
+				amount: d.amount,
+				currency: d.currency,
+				source: 'kofi_transaction_id' in d ? 'Kofi Webhook' : 'Manual',
+				comment:
+					'comment' in d
+						? d.comment
+						: `${d.type}${d.tier_name ? ` (${d.tier_name})` : ''}${d.message ? `: ${d.message}` : ''}`,
+				last_modified_at: 'last_modified_at' in d ? new Date(d.last_modified_at).toLocaleString() : '-',
+				last_modified_by: 'last_modified_by' in d ? d.last_modified_by : '-',
+				mutate: 'last_modified_by' in d && canMutate,
+				id: 'id' in d ? d.id : null,
+			}));
+
 		return {
 			members,
+			donations,
 			admin: info.perms!.includes('admin'),
-			mutate: info.perms!.includes('mutate'),
 			period: membershipLevels.period,
 			summary: {
 				membersTotal: members.length,
 				membersLastPeriod: members.filter((m) => m.donated > 0).length,
-				donationsTotal: members
-					.reduce((a, b) => a + b.donatedAll, 0)
+				donationsTotal: donations
+					.reduce((a, b) => a + +b.amount / this.rates.rates[b.currency], 0)
 					.toLocaleString('en-US', {
 						style: 'currency',
 						currency: membershipLevels.base_currency,
 					}),
-				donationsLastPeriod: members
-					.reduce((a, b) => a + b.donated, 0)
+				donationsLastPeriod: donations
+					.filter((d) => d.in_period)
+					.reduce((a, b) => a + +b.amount / this.rates.rates[b.currency], 0)
 					.toLocaleString('en-US', {
 						style: 'currency',
 						currency: membershipLevels.base_currency,
@@ -176,4 +399,18 @@ export class Dashboard extends Application {
 	override async close() {
 		super.close({ force: true });
 	}
+}
+
+export function expiredAdmin() {
+	return new Dialog({
+		title: 'Admin Token Expired',
+		content:
+			'<p style="text-align:center">Your admin token has expired, please contact the server administrator or login as a normal user.</p>',
+		default: 'ok',
+		buttons: {
+			ok: { icon: '<i class="fas fa-check"></i>', label: 'Ok' },
+			logout: { icon: '<i class="far fa-undo"></i>', label: 'Logout', callback: () => setSetting('token', '') },
+		},
+		close: () => null,
+	}).render(true);
 }

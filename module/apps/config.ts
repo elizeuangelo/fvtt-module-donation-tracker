@@ -1,9 +1,9 @@
-import { MembershipEntry, calcMembershipLevel, getMembersData, parseMembers } from '../membership.js';
+import { MembershipEntry, calcMembershipLevel, getMembersData } from '../membership.js';
 import { PATH, getSetting, setSetting } from '../settings.js';
 import * as API from '../api.js';
 import { Dashboard } from './dashboard.js';
 
-const CURRENCIES = [
+export const CURRENCIES = [
 	{
 		id: 'USD',
 		name: 'American Dollar (USD)',
@@ -32,7 +32,7 @@ export class DTConfig extends FormApplication<any, any, any> {
 	}
 
 	preview = deepClone(getSetting('membershipLevels'));
-	donations: Awaited<ReturnType<typeof API.allDonations>>;
+	members: ReturnType<typeof getMembersData>;
 	rates: Awaited<ReturnType<typeof API.rates>>;
 
 	async addEntry(
@@ -146,9 +146,7 @@ export class DTConfig extends FormApplication<any, any, any> {
 	}
 
 	override async getData(_options) {
-		const memberships = Object.values(getMembersData(this.donations)).map((data) =>
-			calcMembershipLevel(data, this.rates, this.preview)
-		);
+		const memberships = Object.values(this.members).map((data) => calcMembershipLevel(data, this.rates, this.preview));
 
 		return {
 			currency: CURRENCIES,

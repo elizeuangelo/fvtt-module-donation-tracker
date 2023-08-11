@@ -12,16 +12,20 @@
             <table id="members">
                 <thead>
                     <tr>
+                        <th>Last login</th>
+                        <th>Name</th>
                         <th>Email</th>
                         <th>Membership</th>
                         <th>Donations (period)</th>
                         <th>Donations (all-time)</th>
-                        <th><a class="fas fa-cog" data-action="members-config"></a></th>
+                        <th style="min-width: 25px;"><a class="fas fa-cog" data-action="members-config"></a></th>
                     </tr>
                 </thead>
                 <tbody style="text-align: center">
                     {{#each members}}
                     <tr>
+                        <td>{{last_login}}</td>
+                        <td style="font-weight:bold">{{name}}</td>
                         <td>{{email}}</td>
                         <td>{{membership}}</td>
                         <td>{{donatedParsed}}</td>
@@ -45,24 +49,32 @@
             <table id="donations">
                 <thead>
                     <tr>
+                        <th>Timestamp</th>
                         <th>Email</th>
-                        <th>Membership</th>
-                        <th>Donations (period)</th>
-                        <th>Donations (all-time)</th>
-                        <th><a title="Create" class="fa fa-plus" data-action="add"></a></th>
+                        <th>Amount</th>
+                        <th>Currency</th>
+                        <th>Source</th>
+                        <th>Comment</th>
+                        <th>Modified at</th>
+                        <th>Modified by</th>
+                        <th style="min-width: 20px;"><a title="Create" class="fa fa-plus" data-action="add-donation"></a></th>
                     </tr>
                 </thead>
                 <tbody style="text-align: center">
                     {{#each donations}}
                     <tr>
+                        <td>{{timestamp}}</td>
                         <td>{{email}}</td>
-                        <td>{{membership}}</td>
-                        <td>{{donated}}</td>
-                        <td>{{donatedAll}}</td>
-                        <td>
+                        <td>{{amount}}</td>
+                        <td>{{currency}}</td>
+                        <td>{{source}}</td>
+                        <td style="max-width:250px;" title="{{comment}}">{{comment}}</td>
+                        <td>{{last_modified_at}}</td>
+                        <td>{{last_modified_by}}</td>
+                        <td data-email="{{email}}" data-id="{{id}}">
                             {{#if mutate}}
-                            <a title="Modify" class="fa fa-list" data-action="modify" data-entry="{{email}}"></a>
-                            <a title="Remove" class="fa fa-close" data-action="remove" data-entry="{{email}}"></a>
+                            <a title="Modify" class="fa fa-list" data-action="modify-donation"></a>
+                            <a title="Remove" class="fa fa-close" data-action="remove-donation"></a>
                             {{/if}}
                         </td>
                     </tr>
@@ -86,9 +98,9 @@
         <p style="text-align:center;width:50%;margin-left: 25%;"><span style="color:red;font-weight:bold">CAUTION: </span>Operations done here might be irreversible.</p>
         <hr>
         <div class="footer-buttons">
-            <button type="button"><i class="far fa-radar"></i> Check for Updates</button>
-            <button type="button"><i class="far fa-server"></i> Restart Server</button>
-            <button type="button"><i class="far fa-upload"></i> Upload new Configuration</button>
+            <button type="button" data-action="update"><i class="far fa-radar"></i> Check for Updates</button>
+            <button type="button" data-action="restart"><i class="far fa-server"></i> Restart Server</button>
+            <button type="button" data-action="upload-config"><i class="far fa-upload"></i> Upload new Configuration</button>
         </div>
     </div>
 </form>

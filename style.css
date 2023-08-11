@@ -29,10 +29,11 @@
     text-shadow:none;
 }
 
-.donation-tracker td {
+.donation-tracker td, .donation-tracker th {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    padding: 5px 5px;
 }
 
 .donation-tracker div.table {
@@ -49,4 +50,24 @@
     display: flex;
     gap: 20px;
     justify-content: center;
+}
+
+.donation-tracker td a {
+    padding: 0 3px;
+}
+
+body.system-dnd5e input[type="datetime-local"] {
+    width: calc(100% - 2px);
+    min-width: 20px;
+    height: var(--form-field-height);
+    background: rgba(0, 0, 0, 0.05);
+    padding: 1px 3px;
+    margin: 0;
+    color: var(--color-text-dark-primary);
+    font-family: inherit;
+    font-size: inherit;
+    text-align: inherit;
+    line-height: inherit;
+    border: 1px solid var(--color-border-light-tertiary);
+    border-radius: 3px;
 }

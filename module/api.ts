@@ -14,7 +14,7 @@ interface TokenData {
 export interface KofiOperation {
 	verification_token: string;
 	message_id: string;
-	timestamp: string;
+	timestamp: number;
 	type: 'Donation' | 'Subscription' | 'Commission' | 'Shop Order';
 	is_public: boolean;
 	from_name: string;
@@ -55,7 +55,6 @@ export interface KofiUserData {
 export interface ManualOperation {
 	id: string;
 	timestamp: number;
-	source: string;
 	email: string;
 	currency: string;
 	amount: string;
@@ -67,6 +66,13 @@ export interface ManualOperation {
 export interface ManualData {
 	email: string;
 	donations: ManualOperation[];
+}
+
+interface User {
+	id?: string;
+	name?: string;
+	email: string;
+	last_login: number;
 }
 
 function getRoute(route: string) {
@@ -149,13 +155,20 @@ export function checkPermission(perm: Permissions) {
 }
 
 export async function allDonations() {
-	const manual = (await (await fetch(getRoute('/manual/all'), { headers: getHeaders() })).json()) as ManualData[];
-	const kofi = (await (await fetch(getRoute('/kofi/all'), { headers: getHeaders() })).json()) as KofiUserData[];
+	const manual = (await (await fetch(getRoute('/manual/all'), { headers: getHeaders() })).json()) as Record<string, ManualData>;
+	const kofi = (await (await fetch(getRoute('/kofi/all'), { headers: getHeaders() })).json()) as Record<string, KofiUserData>;
 	return { manual, kofi };
 }
 
+export async function getUsers() {
+	return (await (await fetch(getRoute('/users'), { headers: getHeaders() })).json()) as User[];
+}
+
 export async function serverVersion() {
-	return fetch(getRoute('/update/version'), { headers: getHeaders() });
+	return (await (await fetch(getRoute('/update/version'), { headers: getHeaders() })).json()) as {
+		current: string;
+		update: string;
+	};
 }
 
 export async function serverUpdate() {
@@ -166,6 +179,36 @@ export async function serverConfig(config: Record<string, any>) {
 	return fetch(getRoute('/config'), { method: 'POST', headers: getHeaders(), body: JSON.stringify(config) });
 }
 
+export async function serverCheck() {
+	return await (await fetch(getRoute('/check'))).text();
+}
+
 export async function serverRestart() {
-	return fetch(getRoute('/restart'), { method: 'POST', headers: getHeaders() });
+	return await (await fetch(getRoute('/restart'), { method: 'POST', headers: getHeaders() })).text();
+}
+
+// -------------------------------------- //
+
+interface Donation {
+	id: string;
+	timestamp: number;
+	email: string;
+	currency: string;
+	amount: string;
+	comment: string;
+}
+export async function addDonations(entries: Donation[]) {
+	return (await (
+		await fetch(getRoute('/manual/add'), { method: 'POST', headers: getHeaders(), body: JSON.stringify(entries) })
+	).json()) as boolean[];
+}
+export async function modifyDonations(entries: Donation[]) {
+	return (await (
+		await fetch(getRoute('/manual/change'), { method: 'PUT', headers: getHeaders(), body: JSON.stringify(entries) })
+	).json()) as boolean[];
+}
+export async function deleteDonations(ids: string[]) {
+	return (await (
+		await fetch(getRoute('/manual/remove'), { method: 'DELETE', headers: getHeaders(), body: JSON.stringify(ids) })
+	).json()) as boolean[];
 }

@@ -24,9 +24,12 @@ export interface Rates {
 }
 
 interface Member {
+	admin: boolean;
+	name: string;
 	email: string;
-	kofi?: API.KofiUserData;
-	manual?: API.ManualData;
+	last_login: number;
+	kofi: API.KofiUserData['donations'];
+	manual: API.ManualData['donations'];
 }
 
 function convertRates(data: Rates, to: string) {
@@ -42,29 +45,44 @@ function convertRates(data: Rates, to: string) {
 }
 
 export async function myMembershipLevel() {
-	if (!API.isValid()) return null;
+	const payload = API.getTokenInformation();
+	if (!payload) return null;
 	const promises = [API.myDonations(), API.rates()] as const;
 	const [myDonations, rates] = await Promise.all(promises);
 	const membershipLevels = getSetting('membershipLevels');
 
 	return calcMembershipLevel(
-		{ ...myDonations, email: myDonations.kofi?.email ?? myDonations.manual.email },
+		{
+			admin: Boolean(payload.name),
+			name: payload.name ?? game.user.name!,
+			last_login: Date.now(),
+			email: myDonations.kofi?.email ?? myDonations.manual.email,
+			kofi: myDonations.kofi.donations,
+			manual: myDonations.manual.donations,
+		},
 		rates,
 		membershipLevels
 	);
 }
 
-export function getMembersData(donations: Awaited<ReturnType<typeof API.allDonations>>) {
+export function getMembersData(
+	users: Awaited<ReturnType<typeof API.getUsers>>,
+	donations: Awaited<ReturnType<typeof API.allDonations>>
+) {
 	const members: Record<string, Member> = {};
-	donations.kofi.forEach((e) => (members[e.email] = { email: e.email, kofi: e }));
-	donations.manual.forEach((e) => {
-		if (members[e.email]) members[e.email].manual = e;
-		members[e.email] = { email: e.email, manual: e };
-	});
+	users.forEach(
+		(u) =>
+			(members[u.email] = {
+				admin: Boolean(u.name),
+				email: u.email,
+				name: u.name ?? game.users.get(u.id!)?.name ?? '<unknown>',
+				last_login: u.last_login,
+				kofi: donations.kofi[u.email]?.donations ?? [],
+				manual: donations.manual[u.email]?.donations ?? [],
+			})
+	);
 	return members;
 }
-
-export function parseMembers() {}
 
 export function calcMembershipLevel(data: Member, rates: Rates, membershipLevels = getSetting('membershipLevels')) {
 	if (rates.base !== membershipLevels.base_currency) convertRates(rates, membershipLevels.base_currency);
@@ -77,15 +95,14 @@ export function calcMembershipLevel(data: Member, rates: Rates, membershipLevels
 	let donated = 0,
 		donatedAll = 0;
 
-	data.kofi?.donations.forEach((entry) => {
+	data.kofi.forEach((entry) => {
 		const value = +entry.amount / rates.rates[entry.currency];
 		donatedAll += value;
-		const date = new Date(entry.timestamp).getTime();
-		if (date < since) return;
+		if (entry.timestamp < since) return;
 		donated += value;
 	});
 
-	data.manual?.donations.forEach((entry) => {
+	data.manual.forEach((entry) => {
 		const value = +entry.amount / rates.rates[entry.currency];
 		donatedAll += value;
 		if (entry.timestamp < since) return;

@@ -71,8 +71,11 @@ export async function allDonations() {
     const kofi = (await (await fetch(getRoute('/kofi/all'), { headers: getHeaders() })).json());
     return { manual, kofi };
 }
+export async function getUsers() {
+    return (await (await fetch(getRoute('/users'), { headers: getHeaders() })).json());
+}
 export async function serverVersion() {
-    return fetch(getRoute('/update/version'), { headers: getHeaders() });
+    return (await (await fetch(getRoute('/update/version'), { headers: getHeaders() })).json());
 }
 export async function serverUpdate() {
     return fetch(getRoute('/update/update'), { method: 'POST', headers: getHeaders() });
@@ -80,6 +83,18 @@ export async function serverUpdate() {
 export async function serverConfig(config) {
     return fetch(getRoute('/config'), { method: 'POST', headers: getHeaders(), body: JSON.stringify(config) });
 }
+export async function serverCheck() {
+    return await (await fetch(getRoute('/check'))).text();
+}
 export async function serverRestart() {
-    return fetch(getRoute('/restart'), { method: 'POST', headers: getHeaders() });
+    return await (await fetch(getRoute('/restart'), { method: 'POST', headers: getHeaders() })).text();
+}
+export async function addDonations(entries) {
+    return (await (await fetch(getRoute('/manual/add'), { method: 'POST', headers: getHeaders(), body: JSON.stringify(entries) })).json());
+}
+export async function modifyDonations(entries) {
+    return (await (await fetch(getRoute('/manual/change'), { method: 'PUT', headers: getHeaders(), body: JSON.stringify(entries) })).json());
+}
+export async function deleteDonations(ids) {
+    return (await (await fetch(getRoute('/manual/remove'), { method: 'DELETE', headers: getHeaders(), body: JSON.stringify(ids) })).json());
 }

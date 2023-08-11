@@ -1,5 +1,5 @@
 import { LoginApp } from './apps/login.js';
-import { Dashboard } from './apps/dashboard.js';
+import { Dashboard, expiredAdmin } from './apps/dashboard.js';
 import { getSetting } from './settings.js';
 import * as API from './api.js';
 export function updateButton() {
@@ -17,6 +17,8 @@ export function createButton(html) {
     btn.on('click', () => {
         if (API.isAdmin())
             new Dashboard().render(true);
+        else if (API.getTokenPayload()?.perms)
+            expiredAdmin();
         else
             new LoginApp().render(true);
     });
