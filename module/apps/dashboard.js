@@ -170,6 +170,12 @@ export class Dashboard extends Application {
                         }
                         else {
                             const realEntry = this.donations.manual[entry.email].donations.find((e) => e.id === entry.id);
+                            if (entry.timestamp === realEntry.timestamp &&
+                                entry.email === realEntry.email &&
+                                entry.comment === realEntry.comment &&
+                                entry.currency === realEntry.currency &&
+                                entry.amount === realEntry.amount)
+                                return;
                             Object.assign(realEntry, entryData);
                         }
                         ui.notifications.info(`Donation ${entry.new ? 'created' : 'modified'}`);
@@ -213,8 +219,7 @@ export class Dashboard extends Application {
             ui.notifications.error('Bad configuration file');
             return;
         }
-        const config = JSON.parse(data.data);
-        const res = await API.serverConfig(config);
+        const res = await API.serverConfig(data.data);
         if (!res.ok) {
             ui.notifications.info('Some issue happened while uploading the configuration file');
             return;
@@ -257,7 +262,25 @@ export class Dashboard extends Application {
             return;
         }
         ui.notifications.info('Server is restarting... please wait');
-        return;
+        await sleep(7000);
+        const check = (await API.serverCheck()) === 'true';
+        if (check)
+            ui.notifications.info('Server successfully restarted');
+        return check;
+    }
+    async importKofiCSV() {
+        const data = await readFile();
+        if (typeof data?.data !== 'string') {
+            ui.notifications.error('Bad CSV file');
+            return;
+        }
+        const config = JSON.parse(data.data);
+        const res = await API.serverConfig(config);
+        if (!res.ok) {
+            ui.notifications.info('Some issue happened while uploading the configuration file');
+            return;
+        }
+        ui.notifications.info(`File uploaded with success: ${data.file.name}`);
     }
     _getHeaderButtons() {
         const buttons = super._getHeaderButtons();
@@ -288,6 +311,7 @@ export class Dashboard extends Application {
             'upload-config': this.uploadConfig,
             restart: this.restartServer,
             update: this.updateServer,
+            'import-kofi': this.importKofiCSV,
         };
         html.find('[data-action]').each((idx, el) => el.addEventListener('click', () => actions[el.dataset.action].call(this, el)));
     }

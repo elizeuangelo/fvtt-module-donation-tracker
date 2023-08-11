@@ -172,11 +172,11 @@ export async function serverVersion() {
 }
 
 export async function serverUpdate() {
-	return fetch(getRoute('/update/update'), { method: 'POST', headers: getHeaders() });
+	return fetch(getRoute('/update/apply'), { method: 'POST', headers: getHeaders() });
 }
 
-export async function serverConfig(config: Record<string, any>) {
-	return fetch(getRoute('/config'), { method: 'POST', headers: getHeaders(), body: JSON.stringify(config) });
+export async function serverConfig(text: string) {
+	return fetch(getRoute('/config'), { method: 'POST', headers: getHeaders(), body: text });
 }
 
 export async function serverCheck() {
