@@ -89,7 +89,7 @@ export class MembershipAPI {
         return Object.fromEntries([['NONE', -1], ...getSetting('membershipLevels').levels.map((e, idx) => [e.id, idx])]);
     }
     get membershipsInfo() {
-        return getSetting('membershipLevels').levels;
+        return getSetting('membershipLevels');
     }
     membershipLevel = async () => {
         return this.memberships[(await this.#getData())?.membership?.id ?? 'NONE'];
