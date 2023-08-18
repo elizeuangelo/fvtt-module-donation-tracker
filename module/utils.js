@@ -35,3 +35,14 @@ export async function readFile() {
 export function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
+export function parseCSV(str, delimiter = ',') {
+    const rgx = new RegExp(`"(.*?)"${delimiter}?|^(.*?)${delimiter}|(.+)$`, 'g');
+    const data = str.split(/(?:\r)?\n/);
+    if (data.at(-1) === '')
+        data.pop();
+    const headers = [...data[0].matchAll(rgx)].map((r) => r[1] ?? r[2] ?? r[3]);
+    const rows = data
+        .slice(1)
+        .map((r) => Object.fromEntries([...r.matchAll(rgx)].map((r, idx) => [headers[idx], r[1] ?? r[2] ?? r[3]])));
+    return { headers, rows };
+}

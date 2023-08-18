@@ -57,3 +57,21 @@ export async function readFile(): Promise<FileResult | null> {
 export function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+/**
+ * Parses an standard CSV file
+ * @param str text
+ * @param delimiter csv delimiter
+ * @returns
+ */
+export function parseCSV(str: string, delimiter = ',') {
+	const rgx = new RegExp(`"(.*?)"${delimiter}?|^(.*?)${delimiter}|(.+)$`, 'g');
+	const data = str.split(/(?:\r)?\n/);
+	if (data.at(-1) === '') data.pop();
+	const headers = [...data[0].matchAll(rgx)].map((r) => r[1] ?? r[2] ?? r[3]);
+	const rows = data
+		.slice(1)
+		.map((r) => Object.fromEntries([...r.matchAll(rgx)].map((r, idx) => [headers[idx], r[1] ?? r[2] ?? r[3]])));
+
+	return { headers, rows };
+}

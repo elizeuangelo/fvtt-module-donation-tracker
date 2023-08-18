@@ -16,9 +16,9 @@
                         <th>Name</th>
                         <th>Email</th>
                         <th>Membership</th>
-                        <th>Donations (period)</th>
+                        <th>Donations ({{period}})</th>
                         <th>Donations (all-time)</th>
-                        <th style="min-width: 25px;"><a class="fas fa-cog" data-action="members-config"></a></th>
+                        <th style="min-width: 25px;"><a title="Configure membership" class="fas fa-cog" data-action="members-config"></a></th>
                     </tr>
                 </thead>
                 <tbody style="text-align: center">
@@ -30,7 +30,7 @@
                         <td>{{membership}}</td>
                         <td>{{donatedParsed}}</td>
                         <td>{{donatedAllParsed}}</td>
-                        <td><a class="fas fa-eye" data-action="view-member" data-entry="{{email}}"></a></td>
+                        <td><a title="View donations" class="fas fa-eye" data-action="view-member" data-entry="{{email}}"></a></td>
                     </tr>
                     {{/each}}
                 </tbody>
@@ -64,7 +64,7 @@
                     {{#each donations}}
                     <tr>
                         <td>{{timestamp}}</td>
-                        <td>{{email}}</td>
+                        <td style="font-weight:bold">{{#if anonymous}}&lt;anonymous&gt;{{else}}{{email}}{{/if}}</td>
                         <td>{{amount}}</td>
                         <td>{{currency}}</td>
                         <td>{{source}}</td>

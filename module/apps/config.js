@@ -147,7 +147,8 @@ export class DTConfig extends FormApplication {
             return;
         const confirm = await Dialog.confirm({
             title: 'Confirm new Table',
-            content: 'Are you sure you want to implement a new membership table?',
+            content: '<p>Are you sure you want to implement a new membership system?</p>',
+            defaultYes: false,
         });
         if (confirm) {
             setSetting('membershipLevels', this.preview);

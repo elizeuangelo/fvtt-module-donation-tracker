@@ -36,12 +36,20 @@
     padding: 5px 5px;
 }
 
+.donation-tracker td input[type="checkbox"] {
+    height: auto;
+}
+
+.donation-tracker tr.duplicate {
+    background-color: rgb(255 255 0 / 10%);
+}
+
 .donation-tracker div.table {
     max-height: 500px;
     overflow-y: auto;
 }
 
-.donation-tracker div.table thead tr {
+.donation-tracker div.table thead {
     position: sticky;
     top: 0;
 }

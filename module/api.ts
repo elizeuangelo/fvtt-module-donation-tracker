@@ -189,7 +189,7 @@ export async function serverRestart() {
 
 // -------------------------------------- //
 
-interface Donation {
+export interface Donation {
 	id: string;
 	timestamp: number;
 	email: string;

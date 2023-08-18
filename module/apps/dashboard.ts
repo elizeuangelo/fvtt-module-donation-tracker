@@ -3,7 +3,7 @@ import { PATH, getSetting, setSetting } from '../settings.js';
 import { CURRENCIES, DTConfig } from './config.js';
 import * as API from '../api.js';
 import { calcMembershipLevel, getMembersData } from '../membership.js';
-import { parseTime, readFile, sleep } from '../utils.js';
+import { parseCSV, parseTime, readFile, sleep } from '../utils.js';
 
 export class Dashboard extends Application {
 	static get defaultOptions() {
@@ -115,7 +115,7 @@ export class Dashboard extends Application {
                     </div>
                     <div class="form-group">
                         <label>Email</label>
-                        <input type="text" name="email" value="{{email}}" pattern="^[a-zA-Z0-9.!#$%&'*+/=?^_\`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$" required>
+                        <input type="text" name="email" value="{{email}}" pattern="^[a-zA-Z0-9.!#$%&'*+/=?^_\`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$" placeholder="<anonymous>">
                     </div>
                     <div class="form-group">
                         <label>Amount</label>
@@ -155,11 +155,16 @@ export class Dashboard extends Application {
 					label: entry.new ? 'Create' : 'Update',
 					callback: async (html) => {
 						const form = html[0].querySelector('form');
+						const data = new FormData(form);
 						if (form.checkValidity() === false) {
+							const emailRgx = /^[a-zA-Z0-9.!#$%&'*+/=?^_\`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
+							if (!(data.get('email') as string).match(emailRgx)) {
+								ui.notifications.error('Invalid email');
+								throw new Error('Invalid email');
+							}
 							ui.notifications.error('Invalid form');
 							throw new Error('Invalid form');
 						}
-						const data = new FormData(form);
 						entry.timestamp = new Date(data.get('timestamp') as string).getTime();
 						entry.email = data.get('email') as string;
 						entry.currency = data.get('currency') as string;
@@ -183,11 +188,13 @@ export class Dashboard extends Application {
 							return;
 						}
 
+						const entryId = entry.email || '_anonymous';
+
 						if (entry.new) {
-							this.donations.manual[entry.email] ??= { email: entry.email, donations: [] };
-							this.donations.manual[entry.email].donations.push(entryData);
+							this.donations.manual[entryId] ??= { email: entry.email, donations: [] };
+							this.donations.manual[entryId].donations.push(entryData);
 						} else {
-							const realEntry = this.donations.manual[entry.email].donations.find((e) => e.id === entry.id)!;
+							const realEntry = this.donations.manual[entryId].donations.find((e) => e.id === entry.id)!;
 							if (
 								entry.timestamp === realEntry.timestamp &&
 								entry.email === realEntry.email &&
@@ -210,7 +217,7 @@ export class Dashboard extends Application {
 
 	async modifyDonation(el: HTMLElement) {
 		const { id, email } = el.parentElement!.dataset as { email: string; id: string };
-		const entry = this.donations.manual[email].donations.find((d) => d.id === id)!;
+		const entry = this.donations.manual[email || '_anonymous'].donations.find((d) => d.id === id)!;
 		return this.addDonation(el, { ...entry, new: false });
 	}
 
@@ -235,6 +242,7 @@ export class Dashboard extends Application {
 			title: 'Confirm Configuration Upload',
 			content: `<p style="text-align:center">Are you sure you to upload a new configuration file?</p>
                     <p style="text-align:center">A bad configuration might crash the server or cause instabilities.</p>`,
+			defaultYes: false,
 		});
 		if (!confirm) return;
 
@@ -255,6 +263,7 @@ export class Dashboard extends Application {
 		const confirm = await Dialog.confirm({
 			title: 'Confirm Server Restart',
 			content: `<p style="text-align:center">Are you sure you want to restart the server?</p>`,
+			defaultYes: false,
 		});
 		if (!confirm) return;
 		const restarting = (await API.serverRestart()) === 'true';
@@ -275,6 +284,7 @@ export class Dashboard extends Application {
 		const confirm = await Dialog.confirm({
 			title: 'Confirm Server Update',
 			content: `<p style="text-align:center">Update from <b>${current}</b> to <b>${update}</b>?</p>`,
+			defaultYes: false,
 		});
 		if (!confirm) return;
 		const res = await API.serverUpdate();
@@ -292,18 +302,111 @@ export class Dashboard extends Application {
 	}
 
 	async importKofiCSV() {
+		function matchPaymentCSV(headers: string[]) {
+			const target = ['DateTime (UTC)', 'From', 'Message', 'Item', 'Received', 'Currency', 'TransactionType', 'BuyerEmail'];
+			return target.every((v) => headers.includes(v));
+		}
+		const isDuplicate = (donation: API.Donation) => {
+			const entry = donation.email || '_anonymous';
+			const similarKofi = this.donations.kofi[entry]?.donations.find((d) => {
+				const timeDiff = Math.abs(donation.timestamp - d.timestamp);
+				return timeDiff < 61_000 && d.amount === donation.amount && d.currency === donation.currency;
+			});
+			const similarManual = this.donations.manual[entry]?.donations.find(
+				(d) => donation.timestamp === d.timestamp && d.amount === donation.amount && d.currency === donation.currency
+			);
+			return Boolean(similarKofi || similarManual);
+		};
+		function previewTable(donations: API.Donation[]) {
+			return Dialog.prompt({
+				title: 'Import Preview',
+				options: { height: 'auto', width: 700, classes: ['dialog', 'donation-tracker'] },
+				content: /*html*/ Handlebars.compile(`
+                    <div class="table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Include</th>
+                                    <th>Timestamp</th>
+                                    <th>Email</th>
+                                    <th>Amount</th>
+                                    <th>Currency</th>
+                                    <th>Comment</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody style="text-align: center">
+                                {{#each donations}}
+                                <tr {{#if duplicate}}class="duplicate"{{/if}}>
+                                    <td><input type="checkbox" {{#unless duplicate}}checked{{/unless}} data-entry="{{@index}}"></td>
+                                    <td>{{timestamp}}</td>
+                                    <td style="font-weight:bold">{{email}}</td>
+                                    <td>{{amount}}</td>
+                                    <td>{{currency}}</td>
+                                    <td style="max-width:240px;" title="{{comment}}">{{comment}}</td>
+                                    <td>{{#if duplicate}}<i class="fa fa-info-circle" title="This item is possibly a duplicate. A similar donation was found on the donations table."></i>{{/if}}</td>
+                                </tr>
+                                {{/each}}
+                            </tbody>
+                        </table>
+                    </div>
+                `)({
+					donations: donations.map((d) => ({
+						...d,
+						timestamp: new Date(d.timestamp).toLocaleString(),
+						email: d.email || '<anonymous>',
+						duplicate: isDuplicate(d),
+					})),
+				}),
+				label: 'Add Donations',
+				rejectClose: false,
+				callback: (html) => [...html.find('input[checked]')].map((i) => +i.dataset.entry!),
+			});
+		}
 		const data = await readFile();
 		if (typeof data?.data !== 'string') {
-			ui.notifications.error('Bad CSV file');
+			ui.notifications.error('Bad file. Only text files can be parsed into CSV');
 			return;
 		}
-		const config = JSON.parse(data.data);
-		const res = await API.serverConfig(config);
-		if (!res.ok) {
-			ui.notifications.info('Some issue happened while uploading the configuration file');
+		const { headers, rows } = parseCSV(data.data);
+		if (!matchPaymentCSV(headers)) {
+			ui.notifications.error('The CSV does not match a Kofi Payment CSV');
 			return;
 		}
-		ui.notifications.info(`File uploaded with success: ${data.file.name}`);
+		const additions: API.Donation[] = [];
+		additions.push(
+			...rows.map((d) => ({
+				id: randomID(),
+				timestamp: new Date(d['DateTime (UTC)']).getTime(),
+				email: d['BuyerEmail'],
+				currency: d['Currency'],
+				amount: d['Received'],
+				comment: `${d.TransactionType}${d.Item ? ` (${d.Item})` : ''}${'From' in d ? ` [${d.From}]` : ''}${
+					'Message' in d ? `: ${d.Message}` : ''
+				}`,
+			}))
+		);
+		const include = await previewTable(additions);
+		if (!include || include.length === 0) return;
+		const add = include.map((i) => additions[i]);
+		const res = await API.addDonations(add);
+		const conclusion = add.filter((e, idx) => res[idx]);
+
+		conclusion.forEach((entry) => {
+			const entryId = entry.email || '_anonymous';
+			const entryData: API.ManualOperation = {
+				...entry,
+				last_modified_at: Date.now(),
+				last_modified_by: API.getTokenInformation()!.name!,
+			};
+
+			this.donations.manual[entryId] ??= { email: entry.email, donations: [] };
+			this.donations.manual[entryId].donations.push(entryData);
+		});
+
+		ui.notifications.info(`${res.filter(Boolean).length} donations created`);
+		this.render();
+		return add.filter((e, idx) => res[idx]);
 	}
 
 	// ------------------------------------- //
@@ -383,7 +486,8 @@ export class Dashboard extends Application {
 			.map((d) => ({
 				in_period: d.timestamp > since,
 				timestamp: new Date(d.timestamp).toLocaleString(),
-				email: d.email,
+				email: d.email || '_anonymous',
+				anonymous: !Boolean(d.email),
 				amount: d.amount,
 				currency: d.currency,
 				source: 'kofi_transaction_id' in d ? 'Kofi Webhook' : 'Manual',
