@@ -71,3 +71,33 @@ export async function hasPermission(levelId) {
     const targetIdx = membershipLevels.findIndex((entry) => entry.id === levelId);
     return myIdx >= targetIdx;
 }
+export class MembershipAPI {
+    #cache = null;
+    #cache_time = 5 * 60 * 1000;
+    #last = null;
+    #getData = async () => {
+        const timeDiff = Date.now() - (this.#last || 0);
+        if (timeDiff > this.#cache_time)
+            await this.refresh();
+        return this.#cache;
+    };
+    refresh = async () => (this.#cache = await myMembershipLevel());
+    get isAdmin() {
+        return API.isAdmin();
+    }
+    get memberships() {
+        return Object.fromEntries([['NONE', -1], ...getSetting('membershipLevels').levels.map((e, idx) => [e.id, idx])]);
+    }
+    get membershipsInfo() {
+        return getSetting('membershipLevels').levels;
+    }
+    membershipLevel = async () => {
+        return this.memberships[(await this.#getData())?.membership?.id ?? 'NONE'];
+    };
+    hasPermission = async (id) => {
+        if (this.isAdmin)
+            return true;
+        const myLevel = await this.membershipLevel();
+        return myLevel >= this.memberships[id];
+    };
+}

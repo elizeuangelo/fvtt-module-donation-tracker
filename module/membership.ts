@@ -124,3 +124,32 @@ export async function hasPermission(levelId: string) {
 
 	return myIdx >= targetIdx;
 }
+
+export class MembershipAPI {
+	#cache = null as Awaited<ReturnType<typeof myMembershipLevel>>;
+	#cache_time = 5 * 60 * 1000;
+	#last = null as null | number;
+	#getData = async () => {
+		const timeDiff = Date.now() - (this.#last || 0);
+		if (timeDiff > this.#cache_time) await this.refresh();
+		return this.#cache;
+	};
+	refresh = async () => (this.#cache = await myMembershipLevel());
+	get isAdmin() {
+		return API.isAdmin();
+	}
+	get memberships() {
+		return Object.fromEntries([['NONE', -1], ...getSetting('membershipLevels').levels.map((e, idx) => [e.id, idx])]);
+	}
+	get membershipsInfo() {
+		return getSetting('membershipLevels').levels;
+	}
+	membershipLevel = async () => {
+		return this.memberships[(await this.#getData())?.membership?.id ?? 'NONE'];
+	};
+	hasPermission = async (id: string) => {
+		if (this.isAdmin) return true;
+		const myLevel = await this.membershipLevel();
+		return myLevel >= this.memberships[id];
+	};
+}
