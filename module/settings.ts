@@ -11,6 +11,12 @@ const settings = {
 		type: String,
 		default: '',
 	},
+	donationLinks: {
+		scope: 'world',
+		config: false,
+		type: Array,
+		default: [] as { link: string; img: string }[],
+	},
 	buttonLabel: {
 		scope: 'world',
 		config: false,

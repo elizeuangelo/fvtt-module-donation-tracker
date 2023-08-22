@@ -59,6 +59,17 @@
 			<input id="account-membership" type="text" value="{{membership}}" disabled />
 		</div>
 
+        {{#if donation_link.length}}
+        <p>Checkout our options on how to become a member:</p>
+        <div style="height: 25px;display: inline-flex;"">
+            {{#each donation_link}}
+            <a href="{{link}}">
+                <img src="{{img}}" style="border: none;">
+            </a>
+            {{/each}}
+        </div>
+        {{/if}}
+
 		<!-- FOOTER BUTTONS -->
 		<div class="footer-buttons">
 			<button type="button" data-action="logout"><i class="far fa-undo"></i> Log out</button>

@@ -8,6 +8,12 @@ const settings = {
         type: String,
         default: '',
     },
+    donationLinks: {
+        scope: 'world',
+        config: false,
+        type: Array,
+        default: [],
+    },
     buttonLabel: {
         scope: 'world',
         config: false,

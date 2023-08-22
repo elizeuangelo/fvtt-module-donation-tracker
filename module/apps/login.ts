@@ -1,4 +1,4 @@
-import { PATH, setSetting } from '../settings.js';
+import { PATH, getSetting, setSetting } from '../settings.js';
 import { myMembershipLevel } from '../membership.js';
 import * as API from '../api.js';
 
@@ -94,6 +94,7 @@ export class LoginApp extends Application {
 			membership: (await myMembershipLevel())?.membership?.name ?? 'None',
 			email: info?.email ?? '',
 			expired: info?.email && !API.isValid(),
+			donation_link: getSetting('donationLinks'),
 		};
 	}
 
