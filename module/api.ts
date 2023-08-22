@@ -109,10 +109,8 @@ export function isValid() {
 }
 
 export async function checkService() {
-	const res = await fetch(getRoute('/check'), { headers: getHeaders() });
-	if (res.status === 200) return { token: true, service: true };
-	if (res.status === 401) return { token: false, service: true };
-	return { token: false, service: false };
+	const res = await fetch(getRoute('/check'));
+	return res.status === 200;
 }
 
 export function requestCode(email: string) {

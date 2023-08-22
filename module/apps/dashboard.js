@@ -1,5 +1,5 @@
 import { getTokenInformation } from '../api.js';
-import { PATH, getSetting, setSetting } from '../settings.js';
+import { MODULE_ID, PATH, getSetting, setSetting } from '../settings.js';
 import { CURRENCIES, DTConfig } from './config.js';
 import * as API from '../api.js';
 import { calcMembershipLevel, getMembersData } from '../membership.js';
@@ -83,6 +83,68 @@ export class Dashboard extends Application {
             },
         }, { width: 700, classes: ['dialog', 'donation-tracker'] }).render(true);
     }
+    specialMembership(el) {
+        const user = game.users.get(el.dataset.entry);
+        if (!user)
+            return ui.notifications.error(`Can't find user`);
+        const current = user.getFlag(MODULE_ID, 'special-membership');
+        const date = current?.exp ? new Date(current.exp).toISOString().slice(0, 16) : '';
+        const membership = getSetting('membershipLevels').levels.map((m) => ({
+            name: m.name,
+            id: m.id,
+            selected: current?.membership === m.id,
+        }));
+        return new Dialog({
+            title: `Special Membership: ${user.name}`,
+            content: Handlebars.compile(`
+                <form>
+                    <div class="form-group">
+                        <label>Membership</label>
+                        <select name="membership">
+                            {{#each membership}}
+                            <option value="{{id}}" {{#if (eq id ../selected)}}selected{{/if}}>{{name}}</option>
+                            {{/each}}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Expires in</label>
+                        <input type="datetime-local" name="timestamp" value="{{date}}" required>
+                    </div>
+                </form>
+            `)({ date, membership }),
+            default: 'set',
+            close: () => null,
+            render: (html) => { },
+            buttons: {
+                set: {
+                    icon: '<i class="fas fa-save"></i>',
+                    label: 'Set',
+                    callback: (html) => {
+                        const form = html[0].querySelector('form');
+                        const data = new FormData(form);
+                        if (form.checkValidity() === false) {
+                            throw new Error('Invalid date');
+                        }
+                        const exp = new Date(data.get('timestamp')).getTime();
+                        const membership = data.get('membership');
+                        user.setFlag(MODULE_ID, 'special-membership', { exp, membership }).then(() => {
+                            ui.notifications.info(`New minimum membership status set for user ${user.name}`);
+                            this.render();
+                        });
+                    },
+                },
+                remove: {
+                    icon: '<i class="fas fa-trash"></i>',
+                    label: 'Remove',
+                    callback: async (html) => {
+                        await user.setFlag(MODULE_ID, 'special-membership', null);
+                        ui.notifications.info(`Membership from user ${user.name} removed`);
+                        this.render();
+                    },
+                },
+            },
+        }).render(true);
+    }
     async addDonation(_el, entry = {
         new: true,
         id: randomID(),
@@ -102,11 +164,11 @@ export class Dashboard extends Application {
                     </div>
                     <div class="form-group">
                         <label>Email</label>
-                        <input type="text" name="email" value="{{email}}" pattern="^[a-zA-Z0-9.!#$%&'*+/=?^_\`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$" placeholder="<anonymous>">
+                        <input type="text" name="email" value="{{email}}" pattern="[a-zA-Z0-9.!#$%&'*+/=?^_\`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*" placeholder="<anonymous>">
                     </div>
                     <div class="form-group">
                         <label>Amount</label>
-                        <input type="number" name="amount" step="0.01"  min="0.01" value="{{amount}}" required>
+                        <input type="number" name="amount" step="0.01" value="{{amount}}" required>
                     </div>
                     <div class="form-group">
                         <label>Currency</label>
@@ -137,16 +199,14 @@ export class Dashboard extends Application {
                 ok: {
                     icon: '<i class="fas fa-check"></i>',
                     label: entry.new ? 'Create' : 'Update',
-                    callback: async (html) => {
+                    callback: (html) => {
                         const form = html[0].querySelector('form');
                         const data = new FormData(form);
                         if (form.checkValidity() === false) {
                             const emailRgx = /^[a-zA-Z0-9.!#$%&'*+/=?^_\`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
                             if (!data.get('email').match(emailRgx)) {
-                                ui.notifications.error('Invalid email');
                                 throw new Error('Invalid email');
                             }
-                            ui.notifications.error('Invalid form');
                             throw new Error('Invalid form');
                         }
                         entry.timestamp = new Date(data.get('timestamp')).getTime();
@@ -164,28 +224,29 @@ export class Dashboard extends Application {
                             last_modified_at: Date.now(),
                             last_modified_by: API.getTokenInformation().name,
                         };
-                        const res = await (entry.new ? API.addDonations([entryData]) : API.modifyDonations([entryData]));
-                        if (res[0] === false) {
-                            ui.notifications.error(`Failed to ${entry.new ? 'create' : 'update'} donation entry`);
-                            return;
-                        }
-                        const entryId = entry.email || '_anonymous';
-                        if (entry.new) {
-                            this.donations.manual[entryId] ??= { email: entry.email, donations: [] };
-                            this.donations.manual[entryId].donations.push(entryData);
-                        }
-                        else {
-                            const realEntry = this.donations.manual[entryId].donations.find((e) => e.id === entry.id);
-                            if (entry.timestamp === realEntry.timestamp &&
-                                entry.email === realEntry.email &&
-                                entry.comment === realEntry.comment &&
-                                entry.currency === realEntry.currency &&
-                                entry.amount === realEntry.amount)
+                        (entry.new ? API.addDonations([entryData]) : API.modifyDonations([entryData])).then((res) => {
+                            if (res[0] === false) {
+                                ui.notifications.error(`Failed to ${entry.new ? 'create' : 'update'} donation entry`);
                                 return;
-                            Object.assign(realEntry, entryData);
-                        }
-                        ui.notifications.info(`Donation ${entry.new ? 'created' : 'modified'}`);
-                        this.render();
+                            }
+                            const entryId = entry.email || '_anonymous';
+                            if (entry.new) {
+                                this.donations.manual[entryId] ??= { email: entry.email, donations: [] };
+                                this.donations.manual[entryId].donations.push(entryData);
+                            }
+                            else {
+                                const realEntry = this.donations.manual[entryId].donations.find((e) => e.id === entry.id);
+                                if (entry.timestamp === realEntry.timestamp &&
+                                    entry.email === realEntry.email &&
+                                    entry.comment === realEntry.comment &&
+                                    entry.currency === realEntry.currency &&
+                                    entry.amount === realEntry.amount)
+                                    return;
+                                Object.assign(realEntry, entryData);
+                            }
+                            ui.notifications.info(`Donation ${entry.new ? 'created' : 'modified'}`);
+                            this.render();
+                        });
                     },
                 },
             },
@@ -195,6 +256,18 @@ export class Dashboard extends Application {
         const { id, email } = el.parentElement.dataset;
         const entry = this.donations.manual[email || '_anonymous'].donations.find((d) => d.id === id);
         return this.addDonation(el, { ...entry, new: false });
+    }
+    async refundDonation(el) {
+        const { id, email } = el.parentElement.dataset;
+        const entry = this.donations.manual[email || '_anonymous'].donations.find((d) => d.id === id);
+        return this.addDonation(el, {
+            ...entry,
+            new: true,
+            amount: (+entry.amount * -1).toFixed(2),
+            id: randomID(),
+            timestamp: Date.now(),
+            comment: `Refunded: ${new Date(entry.timestamp).toISOString().slice(0, 16)}`,
+        });
     }
     async removeDonation(el) {
         const { id, email } = el.parentElement.dataset;
@@ -399,9 +472,11 @@ export class Dashboard extends Application {
                 cfg.render(true);
             },
             'view-member': this.viewMember,
+            'special-membership': this.specialMembership,
             'add-donation': this.addDonation,
-            'remove-donation': this.removeDonation,
             'modify-donation': this.modifyDonation,
+            'refund-donation': this.refundDonation,
+            'remove-donation': this.removeDonation,
             'upload-config': this.uploadConfig,
             restart: this.restartServer,
             update: this.updateServer,
@@ -418,10 +493,13 @@ export class Dashboard extends Application {
             .map((data) => {
             const membership = calcMembershipLevel(data, this.rates, membershipLevels);
             return {
+                id: data.id,
                 name: data.name + `${data.admin ? ' <admin>' : ''}`,
-                last_login: new Date(data.last_login).toLocaleString(),
+                last_login: new Date(data.last_login).toISOString().slice(0, 16),
+                last_login_value: data.last_login,
                 email: data.email,
                 membership: membership.membership?.name ?? '<None>',
+                special_membership: Boolean(game.users.get(data.id ?? '')?.getFlag(MODULE_ID, 'special-membership')) ?? false,
                 donated: membership.donated,
                 donatedAll: membership.donatedAll,
                 donatedParsed: membership.donated.toLocaleString('en-US', {
@@ -444,20 +522,34 @@ export class Dashboard extends Application {
             .sort((a, b) => b.timestamp - a.timestamp)
             .map((d) => ({
             in_period: d.timestamp > since,
-            timestamp: new Date(d.timestamp).toLocaleString(),
+            timestamp: new Date(d.timestamp).toISOString().slice(0, 16),
             email: d.email || '_anonymous',
             anonymous: !Boolean(d.email),
             amount: d.amount,
+            amount_value: +d.amount,
+            can_refund: +d.amount > 0,
+            is_refunded: false,
             currency: d.currency,
             source: 'kofi_transaction_id' in d ? 'Kofi Webhook' : 'Manual',
             comment: 'comment' in d
                 ? d.comment
                 : `${d.type}${d.tier_name ? ` (${d.tier_name})` : ''}${d.message ? `: ${d.message}` : ''}`,
-            last_modified_at: 'last_modified_at' in d ? new Date(d.last_modified_at).toLocaleString() : '-',
+            last_modified_at: 'last_modified_at' in d ? new Date(d.last_modified_at).toISOString().slice(0, 16) : '-',
             last_modified_by: 'last_modified_by' in d ? d.last_modified_by : '-',
             mutate: 'last_modified_by' in d && canMutate,
             id: 'id' in d ? d.id : null,
         }));
+        const rgx = /Refunded: ([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2})/;
+        donations.forEach((d) => {
+            const match = d.comment.match(rgx);
+            if (!match)
+                return;
+            const refunded = donations.find((ref) => ref.timestamp === match[1]);
+            if (refunded) {
+                refunded.can_refund = false;
+                refunded.is_refunded = true;
+            }
+        });
         return {
             members,
             donations,
@@ -465,7 +557,8 @@ export class Dashboard extends Application {
             period: membershipLevels.period,
             summary: {
                 membersTotal: members.length,
-                membersLastPeriod: members.filter((m) => m.donated > 0).length,
+                membersLastPeriod: members.filter((m) => m.last_login_value > since).length,
+                membersDonatedLastPeriod: members.filter((m) => m.donated > 0).length,
                 donationsTotal: donations
                     .reduce((a, b) => a + +b.amount / this.rates.rates[b.currency], 0)
                     .toLocaleString('en-US', {

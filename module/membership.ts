@@ -1,4 +1,4 @@
-import { getSetting } from './settings.js';
+import { MODULE_ID, getSetting } from './settings.js';
 import { parseTime } from './utils.js';
 import * as API from './api.js';
 
@@ -24,6 +24,7 @@ export interface Rates {
 }
 
 interface Member {
+	id?: string;
 	admin: boolean;
 	name: string;
 	email: string;
@@ -73,6 +74,7 @@ export function getMembersData(
 	users.forEach(
 		(u) =>
 			(members[u.email] = {
+				id: u.id,
 				admin: Boolean(u.name),
 				email: u.email,
 				name: u.name ?? game.users.get(u.id!)?.name ?? '<unknown>',
@@ -109,7 +111,19 @@ export function calcMembershipLevel(data: Member, rates: Rates, membershipLevels
 		donated += value;
 	});
 
-	const membership = membershipLevels.levels.findLast((entry) => entry.accrued <= donated) ?? null;
+	let membership = membershipLevels.levels.findLast((entry) => entry.accrued <= donated) ?? null;
+	if (data.id && game.users.get(data.id)) {
+		const user = game.users.get(data.id);
+		const flag = user?.getFlag(MODULE_ID, 'special-membership') as { exp: number; membership: string };
+		if (flag && flag.exp > since) {
+			const minimumMembership = membershipLevels.levels.find((m) => m.id === flag.membership);
+			if (minimumMembership) {
+				const minIdx = membershipLevels.levels.indexOf(minimumMembership);
+				const currentIdx = membership ? membershipLevels.levels.indexOf(membership) : -1;
+				if (minIdx > currentIdx) membership = minimumMembership;
+			}
+		}
+	}
 
 	return { membership, donated, donatedAll };
 }

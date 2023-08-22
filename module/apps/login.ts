@@ -93,7 +93,7 @@ export class LoginApp extends Application {
 			name,
 			membership: (await myMembershipLevel())?.membership?.name ?? 'None',
 			email: info?.email ?? '',
-			expired: !API.isValid(),
+			expired: info?.email && !API.isValid(),
 		};
 	}
 
