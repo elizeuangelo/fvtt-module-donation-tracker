@@ -71,18 +71,20 @@
                     <tr {{#if (lt amount_value 0)}}class="refund"{{/if}}
                         {{#if is_refunded}}class="refunded"{{/if}}>
                         <td>{{timestamp}}</td>
-                        <td style="font-weight:bold">{{#if anonymous}}&lt;anonymous&gt;{{else}}{{email}}{{/if}}</td>
+                        <td style="font-weight:bold;" title="{{email}}">{{#if anonymous}}&lt;anonymous&gt;{{else}}{{email}}{{/if}}</td>
                         <td>{{amount}}</td>
                         <td>{{currency}}</td>
                         <td>{{source}}</td>
                         <td style="max-width:250px;" title="{{comment}}">{{comment}}</td>
                         <td>{{last_modified_at}}</td>
                         <td>{{last_modified_by}}</td>
-                        <td data-email="{{email}}" data-id="{{id}}">
+                        <td data-email="{{email}}" data-id="{{id}}" data-type="{{type}}">
                             {{#if mutate}}
-                            {{#if can_refund}}<a title="Refund" class="fa fa-left" data-action="refund-donation"></a>{{/if}}
-                            <a title="Modify" class="fa fa-list" data-action="modify-donation"></a>
-                            <a title="Remove" class="fa fa-close" data-action="remove-donation"></a>
+                                {{#if can_refund}}<a title="Refund" class="fa fa-left" data-action="refund-donation"></a>{{/if}}
+                                {{#if can_modify}}
+                                <a title="Modify" class="fa fa-list" data-action="modify-donation"></a>
+                                <a title="Remove" class="fa fa-close" data-action="remove-donation"></a>
+                                {{/if}}
                             {{/if}}
                         </td>
                     </tr>

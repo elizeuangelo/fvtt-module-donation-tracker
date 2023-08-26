@@ -258,8 +258,10 @@ export class Dashboard extends Application {
         return this.addDonation(el, { ...entry, new: false });
     }
     async refundDonation(el) {
-        const { id, email } = el.parentElement.dataset;
-        const entry = this.donations.manual[email || '_anonymous'].donations.find((d) => d.id === id);
+        const { id, email, type } = el.parentElement.dataset;
+        const entry = type === 'manual'
+            ? this.donations.manual[email || '_anonymous']?.donations.find((d) => d.id === id)
+            : this.donations.kofi[email || '_anonymous']?.donations.find((d) => d.kofi_transaction_id === id);
         return this.addDonation(el, {
             ...entry,
             new: true,
@@ -536,8 +538,10 @@ export class Dashboard extends Application {
                 : `${d.type}${d.tier_name ? ` (${d.tier_name})` : ''}${d.message ? `: ${d.message}` : ''}`,
             last_modified_at: 'last_modified_at' in d ? new Date(d.last_modified_at).toISOString().slice(0, 16) : '-',
             last_modified_by: 'last_modified_by' in d ? d.last_modified_by : '-',
-            mutate: 'last_modified_by' in d && canMutate,
-            id: 'id' in d ? d.id : null,
+            mutate: canMutate,
+            can_modify: 'last_modified_by' in d && canMutate,
+            id: 'id' in d ? d.id : d.kofi_transaction_id,
+            type: 'id' in d ? 'manual' : 'kofi',
         }));
         const rgx = /Refunded: ([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2})/;
         donations.forEach((d) => {

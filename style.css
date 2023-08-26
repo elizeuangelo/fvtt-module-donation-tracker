@@ -72,6 +72,10 @@
     background-color: rgba(255,255,0,0.1);
 }
 
+.donation-tracker td {
+    max-width: 130px;
+}
+
 body.system-dnd5e input[type="datetime-local"] {
     width: calc(100% - 2px);
     min-width: 20px;
