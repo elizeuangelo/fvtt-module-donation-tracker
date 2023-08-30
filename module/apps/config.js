@@ -113,8 +113,12 @@ export class DTConfig extends FormApplication {
             delete: this.deleteEntry,
         };
         html.find('[data-action]').each((idx, el) => el.addEventListener('click', () => actions[el.dataset.action].call(this, el)));
-        html.find('select').on('change', (ev) => {
+        html.find('select[name="base-currency"]').on('change', (ev) => {
             this.preview.base_currency = ev.currentTarget.value;
+            this.render();
+        });
+        html.find('select[name="gm-membership"]').on('change', (ev) => {
+            this.preview.gmLevel = ev.currentTarget.value;
             this.render();
         });
         html.find('input[name=period]').on('change', (ev) => {
@@ -133,6 +137,7 @@ export class DTConfig extends FormApplication {
             currency: CURRENCIES,
             selected: this.preview.base_currency,
             period: this.preview.period,
+            gmLevel: this.preview.gmLevel,
             table: this.preview.levels.map((entry) => ({
                 ...entry,
                 base: entry.accrued === 0,

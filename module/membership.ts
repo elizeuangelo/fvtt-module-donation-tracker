@@ -13,6 +13,7 @@ export interface Membership {
 	base_currency: string;
 	period: string;
 	levels: MembershipEntry[];
+	gmLevel?: string;
 }
 
 export interface Rates {
@@ -121,6 +122,18 @@ export function calcMembershipLevel(data: Member, rates: Rates, membershipLevels
 				const minIdx = membershipLevels.levels.indexOf(minimumMembership);
 				const currentIdx = membership ? membershipLevels.levels.indexOf(membership) : -1;
 				if (minIdx > currentIdx) membership = minimumMembership;
+			}
+		}
+	}
+
+	if (game.user.isGM && membershipLevels.gmLevel) {
+		const gmMembership = membershipLevels.levels.find((m) => m.id === membershipLevels.gmLevel);
+		if (gmMembership) {
+			if (!membership) membership = gmMembership;
+			else {
+				const minIdx = membershipLevels.levels.indexOf(gmMembership);
+				const currentIdx = membershipLevels.levels.indexOf(membership);
+				if (minIdx > currentIdx) membership = gmMembership;
 			}
 		}
 	}

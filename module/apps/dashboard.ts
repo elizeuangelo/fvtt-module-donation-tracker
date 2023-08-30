@@ -13,7 +13,7 @@ export class Dashboard extends Application {
 			classes: ['sheet', 'donation-tracker'],
 			template: `${PATH}/templates/dashboard.hbs`,
 			tabs: [{ navSelector: '.tabs[data-group=primary]', contentSelector: 'form' }],
-			width: 800,
+			width: 850,
 			height: 'auto',
 		}) as FormApplicationOptions;
 	}

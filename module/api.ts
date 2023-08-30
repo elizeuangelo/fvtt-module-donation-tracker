@@ -173,6 +173,10 @@ export async function serverUpdate() {
 	return fetch(getRoute('/update/apply'), { method: 'POST', headers: getHeaders() });
 }
 
+export async function serverUpdateToken(text: string) {
+	return fetch(getRoute('/update/token'), { method: 'POST', headers: getHeaders(), body: text });
+}
+
 export async function serverConfig(text: string) {
 	return fetch(getRoute('/config'), { method: 'POST', headers: getHeaders(), body: text });
 }

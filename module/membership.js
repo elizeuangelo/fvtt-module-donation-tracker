@@ -74,6 +74,19 @@ export function calcMembershipLevel(data, rates, membershipLevels = getSetting('
             }
         }
     }
+    if (game.user.isGM && membershipLevels.gmLevel) {
+        const gmMembership = membershipLevels.levels.find((m) => m.id === membershipLevels.gmLevel);
+        if (gmMembership) {
+            if (!membership)
+                membership = gmMembership;
+            else {
+                const minIdx = membershipLevels.levels.indexOf(gmMembership);
+                const currentIdx = membershipLevels.levels.indexOf(membership);
+                if (minIdx > currentIdx)
+                    membership = gmMembership;
+            }
+        }
+    }
     return { membership, donated, donatedAll };
 }
 export async function hasPermission(levelId) {
