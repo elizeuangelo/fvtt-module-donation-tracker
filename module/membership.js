@@ -108,6 +108,8 @@ export class MembershipAPI {
     #cache_time = 5 * 60 * 1000;
     #last = null;
     #getData = async () => {
+        if (!API.isValid())
+            return (this.#cache = undefined);
         const timeDiff = Date.now() - (this.#last || 0);
         if (timeDiff > this.#cache_time)
             await this.refresh();
@@ -120,19 +122,19 @@ export class MembershipAPI {
     get isAdmin() {
         return API.isAdmin();
     }
-    get memberships() {
-        return Object.fromEntries([['NONE', -1], ...getSetting('membershipLevels').levels.map((e, idx) => [e.id, idx])]);
-    }
     get membershipsInfo() {
         return getSetting('membershipLevels');
     }
+    get permissions() {
+        return Object.fromEntries([['NONE', -1], ...getSetting('membershipLevels').levels.map((e, idx) => [e.id, idx])]);
+    }
     membershipLevel = async () => {
-        return this.memberships[(await this.#getData())?.membership?.id ?? 'NONE'];
+        return this.permissions[(await this.#getData())?.membership?.id ?? 'NONE'];
     };
     hasPermission = async (id) => {
         if (this.isAdmin)
             return true;
         const myLevel = await this.membershipLevel();
-        return myLevel >= this.memberships[id];
+        return myLevel >= this.permissions[id];
     };
 }
