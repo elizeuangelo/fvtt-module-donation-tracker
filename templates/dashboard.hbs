@@ -23,11 +23,11 @@
                 </thead>
                 <tbody style="text-align: center">
                     {{#each members}}
-                    <tr>
+                    <tr {{#if special_membership}}class="special-member"{{/if}}>
                         <td>{{last_login}}</td>
                         <td style="font-weight:bold">{{name}}</td>
                         <td title="{{email}}">{{email}}</td>
-                        <td {{#if special_membership}}title="This user has special membership set"{{else}}title="{{membership}}"{{/if}}>{{membership}}{{#if special_membership}}*{{/if}}</td>
+                        <td title="{{membership}}">{{membership}}</td>
                         <td>{{donatedParsed}}</td>
                         <td>{{donatedAllParsed}}</td>
                         <td>

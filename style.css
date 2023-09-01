@@ -72,6 +72,10 @@
     background-color: rgba(255,255,0,0.1);
 }
 
+.donation-tracker tr.special-member {
+    background-color: rgba(150,150,255,0.2);
+}
+
 .donation-tracker td {
     max-width: 130px;
 }
