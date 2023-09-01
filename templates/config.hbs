@@ -18,6 +18,7 @@
     <div class="form-group">
         <label>Gamemaster Membership</label>
         <select name="gm-membership">
+            <option value="">&lt;None&gt;</option>
             {{#each table}}
             <option value="{{id}}" {{#if (eq id ../gmLevel)}}selected{{/if}}>{{name}}</option>
             {{/each}}
