@@ -61,29 +61,34 @@ export function calcMembershipLevel(data, rates, membershipLevels = getSetting('
         donated += value;
     });
     let membership = membershipLevels.levels.findLast((entry) => entry.accrued <= donated) ?? null;
-    if (data.id && game.users.get(data.id)) {
-        const user = game.users.get(data.id);
-        const flag = user?.getFlag(MODULE_ID, 'special-membership');
-        if (flag && flag.exp > since) {
-            const minimumMembership = membershipLevels.levels.find((m) => m.id === flag.membership);
-            if (minimumMembership) {
-                const minIdx = membershipLevels.levels.indexOf(minimumMembership);
-                const currentIdx = membership ? membershipLevels.levels.indexOf(membership) : -1;
-                if (minIdx > currentIdx)
-                    membership = minimumMembership;
-            }
-        }
+    if (data.admin) {
+        membership = membershipLevels.levels.at(-1) ?? null;
     }
-    if (game.user.isGM && membershipLevels.gmLevel) {
-        const gmMembership = membershipLevels.levels.find((m) => m.id === membershipLevels.gmLevel);
-        if (gmMembership) {
-            if (!membership)
-                membership = gmMembership;
-            else {
-                const minIdx = membershipLevels.levels.indexOf(gmMembership);
-                const currentIdx = membershipLevels.levels.indexOf(membership);
-                if (minIdx > currentIdx)
-                    membership = gmMembership;
+    else {
+        if (data.id && game.users.get(data.id)) {
+            const user = game.users.get(data.id);
+            const flag = user?.getFlag(MODULE_ID, 'special-membership');
+            if (flag && flag.exp > since) {
+                const minimumMembership = membershipLevels.levels.find((m) => m.id === flag.membership);
+                if (minimumMembership) {
+                    const minIdx = membershipLevels.levels.indexOf(minimumMembership);
+                    const currentIdx = membership ? membershipLevels.levels.indexOf(membership) : -1;
+                    if (minIdx > currentIdx)
+                        membership = minimumMembership;
+                }
+            }
+            if (user && user.isGM && membershipLevels.gmLevel) {
+                const gmMembership = membershipLevels.levels.find((m) => m.id === membershipLevels.gmLevel);
+                if (gmMembership) {
+                    if (!membership)
+                        membership = gmMembership;
+                    else {
+                        const minIdx = membershipLevels.levels.indexOf(gmMembership);
+                        const currentIdx = membershipLevels.levels.indexOf(membership);
+                        if (minIdx > currentIdx)
+                            membership = gmMembership;
+                    }
+                }
             }
         }
     }
