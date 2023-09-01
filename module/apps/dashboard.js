@@ -102,7 +102,7 @@ export class Dashboard extends Application {
                         <label>Membership</label>
                         <select name="membership">
                             {{#each membership}}
-                            <option value="{{id}}" {{#if (eq id ../selected)}}selected{{/if}}>{{name}}</option>
+                            <option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>
                             {{/each}}
                         </select>
                     </div>

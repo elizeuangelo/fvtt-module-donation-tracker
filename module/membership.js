@@ -9,12 +9,12 @@ function convertRates(data, to) {
     data.base = to;
     data.rates = rates;
 }
-export async function myMembershipLevel() {
+export async function myMembershipLevel(promises) {
     const payload = API.getTokenInformation();
     if (!payload)
         return null;
-    const promises = [API.myDonations(), API.rates()];
-    const [myDonations, rates] = await Promise.all(promises);
+    promises ??= await Promise.all([API.myDonations(), API.rates()]);
+    const [myDonations, rates] = promises;
     const membershipLevels = getSetting('membershipLevels');
     return calcMembershipLevel({
         admin: Boolean(payload.name),
@@ -99,16 +99,19 @@ export async function hasPermission(levelId) {
     return myIdx >= targetIdx;
 }
 export class MembershipAPI {
-    #cache = null;
+    #cache;
     #cache_time = 5 * 60 * 1000;
     #last = null;
     #getData = async () => {
         const timeDiff = Date.now() - (this.#last || 0);
         if (timeDiff > this.#cache_time)
             await this.refresh();
-        return this.#cache;
+        return myMembershipLevel(this.#cache);
     };
-    refresh = async () => (this.#cache = await myMembershipLevel());
+    constructor() {
+        this.refresh();
+    }
+    refresh = async () => (this.#cache = await Promise.all([API.myDonations(), API.rates()]));
     get isAdmin() {
         return API.isAdmin();
     }
