@@ -80,6 +80,17 @@
     max-width: 130px;
 }
 
+.donation-tracker .search {
+    width: 30%;
+    margin-left: 70%;
+}
+
+.donation-tracker .search label {
+    float: right;
+    flex: 0;
+    padding-right: 10px;
+}
+
 body.system-dnd5e input[type="datetime-local"] {
     width: calc(100% - 2px);
     min-width: 20px;

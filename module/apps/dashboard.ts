@@ -13,7 +13,11 @@ export class Dashboard extends Application {
 			classes: ['sheet', 'donation-tracker'],
 			template: `${PATH}/templates/dashboard.hbs`,
 			tabs: [{ navSelector: '.tabs[data-group=primary]', contentSelector: 'form' }],
-			width: 850,
+			filters: [
+				{ inputSelector: 'input[name="filter-members"]', contentSelector: '#members' },
+				{ inputSelector: 'input[name="filter-donations"]', contentSelector: '#donations' },
+			],
+			width: 880,
 			height: 'auto',
 		}) as FormApplicationOptions;
 	}
@@ -605,6 +609,8 @@ export class Dashboard extends Application {
 			}
 		});
 
+		const donationsLastPeriod = donations.filter((d) => d.in_period);
+
 		return {
 			members,
 			donations,
@@ -620,15 +626,24 @@ export class Dashboard extends Application {
 						style: 'currency',
 						currency: membershipLevels.base_currency,
 					}),
-				donationsLastPeriod: donations
-					.filter((d) => d.in_period)
+				donationsLength: donations.length,
+				donationsLastPeriod: donationsLastPeriod
 					.reduce((a, b) => a + +b.amount / this.rates.rates[b.currency], 0)
 					.toLocaleString('en-US', {
 						style: 'currency',
 						currency: membershipLevels.base_currency,
 					}),
+				donationsLastPeriodLength: donationsLastPeriod.length,
 			},
 		};
+	}
+
+	protected override _onSearchFilter(event: KeyboardEvent, query: string, rgx: RegExp, html: HTMLElement): void {
+		html.querySelectorAll('tbody tr').forEach((tr: HTMLElement) => {
+			const show = [...tr.querySelectorAll('td')].some((td) => td.textContent?.match(rgx));
+			if (show) tr.removeAttribute('hidden');
+			else tr.setAttribute('hidden', '');
+		});
 	}
 
 	override async close() {
