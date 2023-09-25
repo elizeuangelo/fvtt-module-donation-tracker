@@ -46,10 +46,13 @@ function convertRates(data: Rates, to: string) {
 	data.rates = rates;
 }
 
-export async function myMembershipLevel(promises?: [Awaited<ReturnType<typeof API.myDonations>>, Rates]) {
+export async function myMembershipLevel() {
+	return myMembershipLevelSync(await Promise.all([API.myDonations(), API.rates()]));
+}
+
+export function myMembershipLevelSync(promises: [Awaited<ReturnType<typeof API.myDonations>>, Rates]) {
 	const payload = API.getTokenInformation();
 	if (!payload) return null;
-	promises ??= await Promise.all([API.myDonations(), API.rates()]);
 	const [myDonations, rates] = promises;
 	const membershipLevels = getSetting('membershipLevels');
 
@@ -145,17 +148,6 @@ export function calcMembershipLevel(data: Member, rates: Rates, membershipLevels
 	return { membership, donated, donatedAll };
 }
 
-export async function hasPermission(levelId: string) {
-	const myLevel = await myMembershipLevel();
-	if (!myLevel || !myLevel.membership) return false;
-
-	const membershipLevels = getSetting('membershipLevels').levels;
-	const myIdx = membershipLevels.findIndex((entry) => entry.id === myLevel.membership!.id);
-	const targetIdx = membershipLevels.findIndex((entry) => entry.id === levelId);
-
-	return myIdx >= targetIdx;
-}
-
 export class MembershipAPI {
 	#cache: undefined | [Awaited<ReturnType<typeof API.myDonations>>, Rates];
 	#cache_time = 5 * 60 * 1000;
@@ -164,7 +156,7 @@ export class MembershipAPI {
 		if (!API.isValid()) return (this.#cache = undefined);
 		const timeDiff = Date.now() - (this.#last || 0);
 		if (timeDiff > this.#cache_time) await this.refresh();
-		return myMembershipLevel(this.#cache);
+		return myMembershipLevelSync(this.#cache!);
 	};
 	constructor() {
 		this.refresh();
@@ -185,6 +177,13 @@ export class MembershipAPI {
 	hasPermission = async (id: string) => {
 		if (this.isAdmin) return true;
 		const myLevel = await this.membershipLevel();
+		return myLevel >= this.permissions[id];
+	};
+	hasPermissionSync = async (id: string) => {
+		if (this.isAdmin) return true;
+		if (!this.#cache) return false;
+		const myMembership = myMembershipLevelSync(this.#cache);
+		const myLevel = this.permissions[myMembership?.membership?.id ?? 'NONE'];
 		return myLevel >= this.permissions[id];
 	};
 }
