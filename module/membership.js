@@ -129,16 +129,16 @@ export class MembershipAPI {
     get permissions() {
         return Object.fromEntries([['NONE', -1], ...getSetting('membershipLevels').levels.map((e, idx) => [e.id, idx])]);
     }
-    membershipLevel = async () => {
+    async membershipLevel() {
         return this.permissions[(await this.#getData())?.membership?.id ?? 'NONE'];
-    };
-    hasPermission = async (id) => {
+    }
+    async hasPermission(id) {
         if (this.isAdmin)
             return true;
         const myLevel = await this.membershipLevel();
         return myLevel >= this.permissions[id];
-    };
-    hasPermissionSync = async (id) => {
+    }
+    hasPermissionSync(id) {
         if (this.isAdmin)
             return true;
         if (!this.#cache)
@@ -146,5 +146,5 @@ export class MembershipAPI {
         const myMembership = myMembershipLevelSync(this.#cache);
         const myLevel = this.permissions[myMembership?.membership?.id ?? 'NONE'];
         return myLevel >= this.permissions[id];
-    };
+    }
 }
