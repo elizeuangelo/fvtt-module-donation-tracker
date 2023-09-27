@@ -10,6 +10,9 @@ function convertRates(data, to) {
     data.rates = rates;
 }
 export async function myMembershipLevel() {
+    const payload = API.getTokenInformation();
+    if (!payload)
+        return null;
     return myMembershipLevelSync(await Promise.all([API.myDonations(), API.rates()]));
 }
 export function myMembershipLevelSync(promises) {
@@ -111,7 +114,12 @@ export class MembershipAPI {
     constructor() {
         this.refresh();
     }
-    refresh = async () => (this.#cache = await Promise.all([API.myDonations(), API.rates()]));
+    async refresh() {
+        if (!API.isValid())
+            return;
+        this.#cache = await Promise.all([API.myDonations(), API.rates()]);
+        this.#last = Date.now();
+    }
     get isAdmin() {
         return API.isAdmin();
     }
