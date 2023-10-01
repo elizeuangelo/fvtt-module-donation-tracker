@@ -23,6 +23,7 @@ export function myMembershipLevelSync(promises) {
     const membershipLevels = getSetting('membershipLevels');
     return calcMembershipLevel({
         admin: Boolean(payload.name),
+        id: payload.id,
         name: payload.name ?? game.user.name,
         last_login: Date.now(),
         email: myDonations.kofi?.email ?? myDonations.manual.email,
