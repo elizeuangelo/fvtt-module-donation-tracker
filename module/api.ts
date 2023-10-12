@@ -109,8 +109,12 @@ export function isValid() {
 }
 
 export async function checkService() {
-	const res = await fetch(getRoute('/check'));
-	return res.status === 200;
+	try {
+		const res = await fetch(getRoute('/check'));
+		return res.status === 200;
+	} catch {
+		return false;
+	}
 }
 
 export function requestCode(email: string) {

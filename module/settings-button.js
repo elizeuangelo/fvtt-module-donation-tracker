@@ -24,7 +24,6 @@ export function createButton(html) {
     });
     updateButton();
 }
-function renderSettings(setting, html) {
+export function renderSettings(setting, html) {
     createButton(html);
 }
-Hooks.on('renderSettings', renderSettings);

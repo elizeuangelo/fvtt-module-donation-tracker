@@ -29,8 +29,13 @@ export function isValid() {
     return payload.exp * 1000 > Date.now();
 }
 export async function checkService() {
-    const res = await fetch(getRoute('/check'));
-    return res.status === 200;
+    try {
+        const res = await fetch(getRoute('/check'));
+        return res.status === 200;
+    }
+    catch {
+        return false;
+    }
 }
 export function requestCode(email) {
     const data = { id: game.user.id, email };

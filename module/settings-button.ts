@@ -24,8 +24,6 @@ export function createButton(html: JQuery<HTMLElement>) {
 	updateButton();
 }
 
-function renderSettings(setting: Setting, html: JQuery<HTMLElement>) {
+export function renderSettings(setting: Setting, html: JQuery<HTMLElement>) {
 	createButton(html);
 }
-
-Hooks.on('renderSettings', renderSettings);
