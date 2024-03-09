@@ -1,108 +1,111 @@
 #dt-login form {
-    text-align: center;
+	text-align: center;
 }
 
 #dt-login form .send-email {
-    font-size: 1.2rem;
-    height: auto;
+	font-size: 1.2rem;
+	height: auto;
+	text-align: center;
 }
 
 #dt-login form .confirm-code {
-    font-size: 1.2rem;
-    height: auto;
-    letter-spacing: 5px;
-    width: auto;
+	font-size: 1.2rem;
+	height: auto;
+	letter-spacing: 5px;
+	width: auto;
 }
 
-#dt-login form .footer-buttons, .donation-tracker form .footer-buttons {
-    display: flex;
-    margin-top: 10px;
+#dt-login form .footer-buttons,
+.donation-tracker form .footer-buttons {
+	display: flex;
+	margin-top: 10px;
 }
 
 .donation-tracker .tabs .item {
-    width: 50%;
-    border-bottom: 3px solid #b5b3a4;
+	width: 50%;
+	border-bottom: 3px solid #b5b3a4;
 }
 
 .donation-tracker .tabs .item.active {
-    border-bottom: 3px solid #44191A;
-    text-shadow:none;
+	border-bottom: 3px solid #44191a;
+	text-shadow: none;
 }
 
-.donation-tracker td, .donation-tracker th {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    padding: 5px 5px;
+.donation-tracker td,
+.donation-tracker th {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	padding: 5px 5px;
 }
 
-.donation-tracker td input[type="checkbox"] {
-    height: auto;
+.donation-tracker td input[type='checkbox'] {
+	height: auto;
 }
 
 .donation-tracker tr.duplicate {
-    background-color: rgb(255 255 0 / 10%);
+	background-color: rgb(255 255 0 / 10%);
 }
 
 .donation-tracker div.table {
-    max-height: 500px;
-    overflow-y: auto;
+	max-height: 500px;
+	overflow-y: auto;
 }
 
 .donation-tracker div.table thead {
-    position: sticky;
-    top: 0;
+	position: sticky;
+	top: 0;
 }
 
 .donation-tracker .summary {
-    display: flex;
-    gap: 20px;
-    justify-content: center;
+	display: flex;
+	gap: 20px;
+	justify-content: center;
 }
 
 .donation-tracker td a {
-    padding: 0 3px;
+	padding: 0 3px;
 }
 
 .donation-tracker tr.refund {
-    background-color: rgba(255,0,255,0.1);
+	background-color: rgba(255, 0, 255, 0.1);
 }
 
 .donation-tracker tr.refunded {
-    background-color: rgba(255,255,0,0.1);
+	background-color: rgba(255, 255, 0, 0.1);
 }
 
 .donation-tracker tr.special-member {
-    background-color: rgba(150,150,255,0.2);
+	background-color: rgba(150, 150, 255, 0.2);
 }
 
 .donation-tracker td {
-    max-width: 130px;
+	max-width: 130px;
 }
 
 .donation-tracker .search {
-    width: 30%;
-    margin-left: 70%;
+	width: 30%;
+	margin-left: 70%;
 }
 
 .donation-tracker .search label {
-    float: right;
-    flex: 0;
-    padding-right: 10px;
+	float: right;
+	flex: 0;
+	padding-right: 10px;
 }
 
-body.system-dnd5e input[type="datetime-local"] {
-    width: calc(100% - 2px);
-    min-width: 20px;
-    height: var(--form-field-height);
-    background: rgba(0, 0, 0, 0.05);
-    padding: 1px 3px;
-    margin: 0;
-    color: var(--color-text-dark-primary);
-    font-family: inherit;
-    font-size: inherit;
-    text-align: inherit;
-    line-height: inherit;
-    border: 1px solid var(--color-border-light-tertiary);
-    border-radius: 3px;
+body.system-dnd5e input[type='datetime-local'] {
+	width: calc(100% - 2px);
+	min-width: 20px;
+	height: var(--form-field-height);
+	background: rgba(0, 0, 0, 0.05);
+	padding: 1px 3px;
+	margin: 0;
+	color: var(--color-text-dark-primary);
+	font-family: inherit;
+	font-size: inherit;
+	text-align: inherit;
+	line-height: inherit;
+	border: 1px solid var(--color-border-light-tertiary);
+	border-radius: 3px;
 }
