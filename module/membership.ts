@@ -181,7 +181,7 @@ export class MembershipAPI {
 	 * If the time difference since the last refresh is greater than the cache time, the data is refreshed.
 	 * @returns The membership level data.
 	 */
-	#getData() {
+	#getData(): ReturnType<typeof myMembershipLevelSync> | undefined {
 		if (!API.isValid()) return (this.#cache = undefined);
 		const timeDiff = Date.now() - (this.#last || 0);
 		if (timeDiff > this.#cache_time) this.refresh();
@@ -228,7 +228,7 @@ export class MembershipAPI {
 	/**
 	 * Returns whether the user is an admin.
 	 */
-	get isAdmin() {
+	get isAdmin(): boolean {
 		if (this.devMode) return this.DEVELOPER_IS_ADMIN;
 		return API.isAdmin();
 	}
@@ -243,7 +243,7 @@ export class MembershipAPI {
 	/**
 	 * Returns the member levels ranks.
 	 */
-	get RANKS() {
+	get RANKS(): Record<string, number> {
 		const levels = this.devMode ? this.DEVELOPER_LEVELS : this.membershipsInfo.levels.map((e) => e.id);
 		return Object.fromEntries([['NONE', -1], ...levels.map((e, idx) => [e, idx])]);
 	}
@@ -251,14 +251,14 @@ export class MembershipAPI {
 	/**
 	 * Returns the user membership ID.
 	 */
-	get membership() {
+	get membership(): string | undefined {
 		return this.devMode ? this.DEVELOPER_MEMBERSHIP : this.#getData()?.membership?.id;
 	}
 
 	/**
 	 * Returns the user membership level rank.
 	 */
-	get membershipLevel() {
+	get membershipLevel(): number {
 		const id = this.devMode ? this.DEVELOPER_MEMBERSHIP : this.#getData()?.membership?.id;
 		return this.RANKS[id ?? 'NONE'];
 	}
@@ -266,7 +266,7 @@ export class MembershipAPI {
 	/**
 	 * Refreshes the user data accessing the donation-tracker API.
 	 */
-	async refresh() {
+	async refresh(): Promise<void> {
 		if (this.devMode) return;
 		if (!API.isValid()) return;
 		this.#cache = await Promise.all([API.myDonations(), API.rates()]);
@@ -277,10 +277,10 @@ export class MembershipAPI {
 	 * Returns whether the user has a specific permission.
 	 * @param key The permission ID or Rank level.
 	 */
-	hasPermission(key: string | number) {
+	hasPermission(key: string | number): boolean {
 		if (typeof key === 'string') key = this.RANKS[key] ?? -1;
 		if (this.isAdmin) return true;
-		const myLevel = this.membershipLevel();
+		const myLevel = this.membershipLevel;
 		return myLevel >= key;
 	}
 }
