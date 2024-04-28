@@ -2,8 +2,9 @@ name: Generate and Deploy TypeDoc Documentation
 
 on:
     push:
-        branches:
-            - main # Or your default branch
+        # Sequence of patterns matched against refs/tags
+        tags:
+            - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
 
 jobs:
     documentation:
