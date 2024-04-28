@@ -40,6 +40,13 @@ jobs:
                   files: 'module.json'
               env:
                   version: ${{ steps.get_version.outputs.VERSION_NUMBER }}
+                  url: https://github.com/${{ github.repository }}
+                  bugs: https://github.com/${{ github.repository }}/issues
+                  #license: https://raw.githubusercontent.com/${{ github.repository }}/v${{ steps.get_version.outputs.VERSION_NUMBER }}/LICENSE
+                  changelog: https://raw.githubusercontent.com/${{ github.repository }}/v${{ steps.get_version.outputs.VERSION_NUMBER }}/releases.md
+                  readme: https://raw.githubusercontent.com/${{ github.repository }}/v${{ steps.get_version.outputs.VERSION_NUMBER }}/README.md
+                  manifest: https://github.com/${{ github.repository }}/releases/latest/download/module.json
+                  download: https://github.com/${{ github.repository }}/releases/download/v${{ steps.get_version.outputs.VERSION_NUMBER }}/module.zip
 
             - name: Zip files
               run: zip -r module * -x ".github/*" "assets/*" "*.ts" "releases.md" "README.md" "types/*" "package-lock.json" "package.json" "tsconfig.json" "node_modules/*"
