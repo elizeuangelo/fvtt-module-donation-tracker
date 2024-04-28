@@ -111,6 +111,7 @@ export class DTConfig extends FormApplication<any> {
 
 							const id = (data.get('id') as string) || this.parseId(name, entry.id);
 							if (this.preview.levels.find((e) => e.id === id && e !== oldEntry)) throw new Error(`Duplicate id`);
+							if (id === 'NONE') throw new Error(`"NONE" is a reserved id`);
 
 							const accrued = +(data.get('accrued') as string);
 							const sameValue = this.preview.levels.find((e) => e.accrued === accrued && e.id !== entry.id);
