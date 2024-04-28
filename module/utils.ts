@@ -75,3 +75,20 @@ export function parseCSV(str: string, delimiter = ',') {
 
 	return { headers, rows };
 }
+
+/**
+ * Slugifies a given text string
+ * @param str Text to slugify
+ * @returns Sluggified text
+ */
+export function slugifyCamelCase(text: string) {
+	return (
+		text
+			.toLowerCase()
+			.match(/[a-z0-9]+/g) // Match words and numbers, ignoring special characters
+			?.map(
+				(word, index) => (index === 0 ? word : word[0].toUpperCase() + word.slice(1)) // Capitalize the first letter of each word except the first
+			)
+			.join('') ?? ''
+	); // Join words without any separators
+}

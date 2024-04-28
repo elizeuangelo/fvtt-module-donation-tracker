@@ -1,3 +1,6 @@
+/**
+ * Represents an API for managing membership levels and permissions.
+ */
 import { MODULE_ID, getSetting } from './settings.js';
 import { parseTime } from './utils.js';
 import * as API from './api.js';
@@ -155,51 +158,100 @@ export class MembershipAPI {
 	#cache: undefined | [Awaited<ReturnType<typeof API.myDonations>>, Rates];
 	#cache_time = 5 * 60 * 1000;
 	#last = null as null | number;
-	#getData = async () => {
+
+	/**
+	 * Retrieves the data for the membership.
+	 * If the API is not valid, the cache is set to undefined.
+	 * If the time difference since the last refresh is greater than the cache time, the data is refreshed.
+	 * @returns The membership level data.
+	 */
+	#getData() {
 		if (!API.isValid()) return (this.#cache = undefined);
 		const timeDiff = Date.now() - (this.#last || 0);
-		if (timeDiff > this.#cache_time) await this.refresh();
+		if (timeDiff > this.#cache_time) this.refresh();
 		return myMembershipLevelSync(this.#cache!);
-	};
-	DEVELOPER_CONFIG = {};
+	}
+
 	constructor() {
 		this.refresh();
 	}
+
+	/**
+	 * Developer Settings in case there is no server configured.
+	 */
+	DEVELOPER_LEVELS = ['member', 'benefactor', 'benefactorOfKnowledge'] as const;
+	DEVELOPER_MEMBERSHIP: (typeof this.DEVELOPER_LEVELS)[number] = 'member';
+	DEVELOPER_IS_ADMIN = false;
+
+	#devMode = getSetting('server') === '';
+	/**
+	 * Returns whether the API is in development mode.
+	 */
+	get devMode(): boolean {
+		return this.#devMode;
+	}
+	/**
+	 * Toggles development mode.
+	 */
+	set devMode(value: boolean) {
+		this.#devMode = value;
+	}
+
+	/**
+	 * Returns whether the user is an admin.
+	 */
+	get isAdmin() {
+		if (this.devMode) return this.DEVELOPER_IS_ADMIN;
+		return API.isAdmin();
+	}
+
+	/**
+	 * Returns the membership levels configured.
+	 */
+	get membershipsInfo() {
+		return getSetting('membershipLevels');
+	}
+
+	/**
+	 * Returns the member levels ranks.
+	 */
+	get RANKS() {
+		const levels = this.devMode ? this.DEVELOPER_LEVELS : this.membershipsInfo.levels.map((e) => e.id);
+		return Object.fromEntries([['NONE', -1], ...levels.map((e, idx) => [e, idx])]);
+	}
+
+	/**
+	 * Returns the user membership ID.
+	 */
+	get membership() {
+		return this.devMode ? this.DEVELOPER_MEMBERSHIP : this.#getData()?.membership?.id;
+	}
+
+	/**
+	 * Returns the user membership level rank.
+	 */
+	get membershipLevel() {
+		const id = this.devMode ? this.DEVELOPER_MEMBERSHIP : this.#getData()?.membership?.id;
+		return this.RANKS[id ?? 'NONE'];
+	}
+
+	/**
+	 * Refreshes the user data accessing the donation-tracker API.
+	 */
 	async refresh() {
-		if (this.devMode) {
-			this.#cache = mergeObject({}, this.DEVELOPER_CONFIG);
-			this.#last = Date.now();
-			return;
-		}
+		if (this.devMode) return;
 		if (!API.isValid()) return;
 		this.#cache = await Promise.all([API.myDonations(), API.rates()]);
 		this.#last = Date.now();
 	}
-	get devMode(): boolean {
-		return getSetting('server') === '';
-	}
-	get isAdmin() {
-		return API.isAdmin();
-	}
-	get membershipsInfo() {
-		return getSetting('membershipLevels');
-	}
-	get permissions() {
-		return Object.fromEntries([['NONE', -1], ...getSetting('membershipLevels').levels.map((e, idx) => [e.id, idx])]);
-	}
-	async membershipLevel() {
-		return this.permissions[(await this.#getData())?.membership?.id ?? 'NONE'];
-	}
-	async hasPermission(id: string) {
+
+	/**
+	 * Returns whether the user has a specific permission.
+	 * @param id The permission ID.
+	 */
+	hasPermission(id: string) {
 		if (this.isAdmin) return true;
-		const myLevel = await this.membershipLevel();
-		return myLevel >= this.permissions[id];
-	}
-	hasPermissionSync(id: string) {
-		if (this.isAdmin) return true;
-		if (!this.#cache) return false;
-		const myMembership = myMembershipLevelSync(this.#cache);
-		const myLevel = this.permissions[myMembership?.membership?.id ?? 'NONE'];
-		return myLevel >= this.permissions[id];
+		const myLevel = this.membershipLevel();
+		return myLevel >= this.RANKS[id];
 	}
 }

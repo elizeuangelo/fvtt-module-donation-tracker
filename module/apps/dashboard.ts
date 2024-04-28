@@ -6,7 +6,7 @@ import { calcMembershipLevel, getMembersData } from '../membership.js';
 import { parseCSV, parseTime, readFile, sleep } from '../utils.js';
 
 export class Dashboard extends Application {
-	static get defaultOptions() {
+	static override get defaultOptions() {
 		return mergeObject(super.defaultOptions, {
 			id: 'dt-dashboard',
 			title: `Donation Tracker - Dashboard`,
@@ -22,10 +22,10 @@ export class Dashboard extends Application {
 		}) as FormApplicationOptions;
 	}
 
-	members: ReturnType<typeof getMembersData>;
-	users: Awaited<ReturnType<typeof API.getUsers>>;
-	donations: Awaited<ReturnType<typeof API.allDonations>>;
-	rates: Awaited<ReturnType<typeof API.rates>>;
+	members!: ReturnType<typeof getMembersData>;
+	users!: Awaited<ReturnType<typeof API.getUsers>>;
+	donations!: Awaited<ReturnType<typeof API.allDonations>>;
+	rates!: Awaited<ReturnType<typeof API.rates>>;
 
 	async refreshData(target?: HTMLElement) {
 		if (target) target.querySelector('i')?.classList.add('fa-spin');
@@ -224,7 +224,7 @@ export class Dashboard extends Application {
 					icon: '<i class="fas fa-check"></i>',
 					label: entry.new ? 'Create' : 'Update',
 					callback: (html) => {
-						const form = html[0].querySelector('form');
+						const form = html[0].querySelector('form') as HTMLFormElement;
 						const data = new FormData(form);
 						if (form.checkValidity() === false) {
 							const emailRgx = /^[a-zA-Z0-9.!#$%&'*+/=?^_\`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
@@ -497,14 +497,14 @@ export class Dashboard extends Application {
 
 	// ------------------------------------- //
 
-	protected override _getHeaderButtons(): Application.HeaderButton[] {
+	protected override _getHeaderButtons(): ApplicationHeaderButton[] {
 		const buttons = super._getHeaderButtons();
 		buttons.unshift({
 			label: 'Refresh',
 			class: 'refresh',
 			icon: 'fas fa-refresh',
-			onclick: async (ev: JQuery.ClickEvent) => {
-				await this.refreshData(ev.currentTarget);
+			onclick: async (ev) => {
+				await this.refreshData(ev.currentTarget as HTMLElement);
 				this.render();
 			},
 		});
@@ -536,7 +536,7 @@ export class Dashboard extends Application {
 		);
 	}
 
-	override async getData(_options) {
+	override async getData() {
 		if (!this.members || !this.rates) await this.refreshData();
 		const membershipLevels = getSetting('membershipLevels');
 		this.members = getMembersData(this.users, this.donations);
@@ -638,8 +638,8 @@ export class Dashboard extends Application {
 		};
 	}
 
-	protected override _onSearchFilter(event: KeyboardEvent, query: string, rgx: RegExp, html: HTMLElement): void {
-		html.querySelectorAll('tbody tr').forEach((tr: HTMLElement) => {
+	protected override _onSearchFilter(_ev: KeyboardEvent, _query: string, rgx: RegExp, html: HTMLElement): void {
+		html.querySelectorAll<HTMLTableRowElement>('tbody tr').forEach((tr) => {
 			const show = [...tr.querySelectorAll('td')].some((td) => td.textContent?.match(rgx));
 			if (show) tr.removeAttribute('hidden');
 			else tr.setAttribute('hidden', '');
@@ -659,7 +659,13 @@ export function expiredAdmin() {
 		default: 'ok',
 		buttons: {
 			ok: { icon: '<i class="fas fa-check"></i>', label: 'Ok' },
-			logout: { icon: '<i class="far fa-undo"></i>', label: 'Logout', callback: () => setSetting('token', '') },
+			logout: {
+				icon: '<i class="far fa-undo"></i>',
+				label: 'Logout',
+				callback: () => {
+					setSetting('token', '');
+				},
+			},
 		},
 		close: () => null,
 	}).render(true);

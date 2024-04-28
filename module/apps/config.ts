@@ -2,6 +2,7 @@ import { MembershipEntry, calcMembershipLevel, getMembersData } from '../members
 import { PATH, getSetting, setSetting } from '../settings.js';
 import * as API from '../api.js';
 import { Dashboard } from './dashboard.js';
+import { slugifyCamelCase } from '../utils.js';
 
 export const CURRENCIES = [
 	{
@@ -18,27 +19,42 @@ export const CURRENCIES = [
 	},
 ];
 
-export class DTConfig extends FormApplication<any, any, any> {
-	static get defaultOptions() {
+export class DTConfig extends FormApplication<any> {
+	static override get defaultOptions() {
 		return mergeObject(super.defaultOptions, {
 			id: 'dt-config',
 			title: 'Membership Configuration',
 			classes: ['sheet', 'donation-tracker'],
 			template: `${PATH}/templates/config.hbs`,
 			tabs: [],
-			width: 500,
+			width: 600,
 			height: 'auto',
 		}) as FormApplicationOptions;
 	}
 
 	preview = deepClone(getSetting('membershipLevels'));
-	members: ReturnType<typeof getMembersData>;
-	rates: Awaited<ReturnType<typeof API.rates>>;
+	members!: ReturnType<typeof getMembersData>;
+	rates!: Awaited<ReturnType<typeof API.rates>>;
+
+	parseId(name: string, oldId?: string): string {
+		name = slugifyCamelCase(name);
+		if (oldId && oldId === name) return oldId;
+		if (this.preview.levels.find((e) => e.id === name)) {
+			let append = 1;
+			let newName = name + append;
+			while (this.preview.levels.find((e) => e.id === newName)) {
+				append++;
+				newName = name + append;
+			}
+			return newName;
+		}
+		return name;
+	}
 
 	async addEntry(
 		_el: HTMLElement,
 		entry: MembershipEntry = {
-			id: randomID(),
+			id: '',
 			name: '',
 			accrued: 0,
 			description: '',
@@ -51,6 +67,10 @@ export class DTConfig extends FormApplication<any, any, any> {
 				title: `${oldEntry ? 'Modify' : 'Create'} Entry`,
 				content: /*html*/ `
                 <form autocomplete="off">
+                    <div class="form-group">
+                        <label>Id</label>
+                        <input type="text" name="id" value="${entry.id}">
+                    </div>
                     <div class="form-group">
                         <label>Name</label>
                         <input type="text" name="name" value="${entry.name}" required>
@@ -65,9 +85,17 @@ export class DTConfig extends FormApplication<any, any, any> {
                     </div>
                 </form>
             `,
-				focus: true,
+				//focus: true,
 				default: 'update',
 				close: () => null,
+				render: (html) => {
+					const id = (html as JQuery).find<HTMLInputElement>('form input[name="id"]')[0];
+					const name = (html as JQuery).find<HTMLInputElement>('form input[name="name"]');
+					name.on('change', (ev) => {
+						id.placeholder = this.parseId(name.val() as string);
+					});
+					id.placeholder = this.parseId(name.val() as string);
+				},
 				buttons: {
 					update: {
 						icon: '<i class="fas fa-check"></i>',
@@ -81,11 +109,15 @@ export class DTConfig extends FormApplication<any, any, any> {
 							const name = data.get('name') as string;
 							if (name === '') throw new Error(`Please enter a name`);
 
+							const id = (data.get('id') as string) || this.parseId(name, entry.id);
+							if (this.preview.levels.find((e) => e.id === id && e !== oldEntry)) throw new Error(`Duplicate id`);
+
 							const accrued = +(data.get('accrued') as string);
 							const sameValue = this.preview.levels.find((e) => e.accrued === accrued && e.id !== entry.id);
 							if (sameValue) throw new Error('There is another membership with the exact same accrued value');
 							if (form.checkValidity() === false) throw new Error('Invalid form');
 
+							entry.id = id;
 							entry.name = name;
 							entry.accrued = accrued;
 							entry.description = data.get('description') as string;
@@ -149,7 +181,8 @@ export class DTConfig extends FormApplication<any, any, any> {
 		});
 	}
 
-	override async getData(_options) {
+	//@ts-ignore
+	override async getData() {
 		const memberships = Object.values(this.members).map((data) => calcMembershipLevel(data, this.rates, this.preview));
 
 		return {

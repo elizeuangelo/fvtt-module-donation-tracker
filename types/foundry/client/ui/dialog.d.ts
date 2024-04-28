@@ -133,11 +133,7 @@ declare class Dialog extends Application {
 	 * @param renderOptions Options passed to the Dialog render call.
 	 * @returns             A Promise that resolves to the chosen result.
 	 */
-	static wait<T = unknown>(
-		data: DialogData,
-		options?: Partial<Dialog['options']>,
-		renderOptions?: RenderOptions
-	): Promise<T>;
+	static wait<T = unknown>(data: DialogData, options?: Partial<Dialog['options']>, renderOptions?: RenderOptions): Promise<T>;
 
 	/**
 	 * A helper factory method to display a basic "prompt" style Dialog with a single button
@@ -150,4 +146,3 @@ declare class Dialog extends Application {
 	 */
 	static prompt<T = unknown>(options?: PromptOptions<T>): ReturnType<PromptOptions<T>['callback']>;
 }
-

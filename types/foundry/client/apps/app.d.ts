@@ -284,6 +284,15 @@ declare global {
 		 * @returns {Function[]}
 		 */
 		static _getInheritanceChain(): Application[];
+
+		/**
+		 * Change the currently active tab
+		 * @param tabName      The target tab name to switch to
+		 * @param options      Options which configure changing the tab
+		 * @param options.group    A specific named tab group, useful if multiple sets of tabs are present
+		 * @param options.triggerCallback  Whether to trigger tab-change callback functions
+		 */
+		activateTab(tabName: string, options?: { group: string; triggerCallback: boolean }): void;
 	}
 
 	interface ApplicationOptions {

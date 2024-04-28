@@ -32,6 +32,7 @@
 		<thead>
 			<tr>
                 <th>Tier</th>
+                <th>Id</th>
 				<th>Name</th>
 				<th>Accrued</th>
                 <th>Members (est.)</th>
@@ -42,6 +43,7 @@
 			{{#each table}}
 			<tr data-entry="{{@index}}">
                 <td>{{@index}}</td>
+                <td>{{id}}</td>
 				<td>{{name}}</td>
 				<td>{{accrued}}</td>
                 <td style="font-weight:bold">{{members}} {{#if base}}or more{{/if}}</td>

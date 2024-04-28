@@ -3,7 +3,7 @@ import { myMembershipLevel } from '../membership.js';
 import * as API from '../api.js';
 
 export class LoginApp extends Application {
-	static get defaultOptions() {
+	static override get defaultOptions() {
 		return mergeObject(super.defaultOptions, {
 			id: 'dt-login',
 			title: `Register your Email`,
@@ -86,7 +86,7 @@ export class LoginApp extends Application {
 		setTimeout(() => this.activateTab('finish'), 0);
 	}
 
-	override async getData(_options) {
+	override async getData() {
 		const info = API.getTokenInformation();
 		const name = info?.name ?? info?.id ? game.users.get(info.id!)?.name ?? '<unknown>' : null;
 		return {
