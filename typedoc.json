@@ -1,0 +1,4 @@
+{
+	"entryPoints": ["module/membership.ts"],
+	"out": "docs"
+}

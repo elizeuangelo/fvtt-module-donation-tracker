@@ -1,6 +1,3 @@
-/**
- * Represents an API for managing membership levels and permissions.
- */
 import { MODULE_ID, getSetting } from './settings.js';
 import { parseTime } from './utils.js';
 import * as API from './api.js';
@@ -37,6 +34,9 @@ interface Member {
 	manual: API.ManualData['donations'];
 }
 
+/**
+ * @hidden
+ */
 function convertRates(data: Rates, to: string) {
 	const baseRate = data.rates[to];
 	const rates = { ...data.rates };
@@ -49,12 +49,18 @@ function convertRates(data: Rates, to: string) {
 	data.rates = rates;
 }
 
+/**
+ * @hidden
+ */
 export async function myMembershipLevel() {
 	const payload = API.getTokenInformation();
 	if (!payload) return null;
 	return myMembershipLevelSync(await Promise.all([API.myDonations(), API.rates()]));
 }
 
+/**
+ * @hidden
+ */
 export function myMembershipLevelSync(promises: [Awaited<ReturnType<typeof API.myDonations>>, Rates]) {
 	const payload = API.getTokenInformation();
 	if (!payload) return null;
@@ -76,6 +82,9 @@ export function myMembershipLevelSync(promises: [Awaited<ReturnType<typeof API.m
 	);
 }
 
+/**
+ * @hidden
+ */
 export function getMembersData(
 	users: Awaited<ReturnType<typeof API.getUsers>>,
 	donations: Awaited<ReturnType<typeof API.allDonations>>
@@ -96,6 +105,9 @@ export function getMembersData(
 	return members;
 }
 
+/**
+ * @hidden
+ */
 export function calcMembershipLevel(data: Member, rates: Rates, membershipLevels = getSetting('membershipLevels')) {
 	if (rates.base !== membershipLevels.base_currency) convertRates(rates, membershipLevels.base_currency);
 
@@ -154,6 +166,10 @@ export function calcMembershipLevel(data: Member, rates: Rates, membershipLevels
 	return { membership, donated, donatedAll };
 }
 
+/**
+ * The Basic Membership API for managing membership levels and permissions.
+ * Instantiated on the `game.membership` object.
+ */
 export class MembershipAPI {
 	#cache: undefined | [Awaited<ReturnType<typeof API.myDonations>>, Rates];
 	#cache_time = 5 * 60 * 1000;
@@ -176,12 +192,24 @@ export class MembershipAPI {
 		this.refresh();
 	}
 
+	// ---------------------------------------- //
+
 	/**
-	 * Developer Settings in case there is no server configured.
+	 * Default Membership levels for Developer Mode.
 	 */
 	DEVELOPER_LEVELS = ['member', 'benefactor', 'benefactorOfKnowledge'] as const;
+
+	/**
+	 * Default Membership for Developer Mode.
+	 */
 	DEVELOPER_MEMBERSHIP: (typeof this.DEVELOPER_LEVELS)[number] = 'member';
+
+	/**
+	 * Default Admin status for Developer Mode.
+	 */
 	DEVELOPER_IS_ADMIN = false;
+
+	// ---------------------------------------- //
 
 	#devMode = getSetting('server') === '';
 	/**
@@ -247,11 +275,12 @@ export class MembershipAPI {
 
 	/**
 	 * Returns whether the user has a specific permission.
-	 * @param id The permission ID.
+	 * @param key The permission ID or Rank level.
 	 */
-	hasPermission(id: string) {
+	hasPermission(key: string | number) {
+		if (typeof key === 'string') key = this.RANKS[key] ?? -1;
 		if (this.isAdmin) return true;
 		const myLevel = this.membershipLevel();
-		return myLevel >= this.RANKS[id];
+		return myLevel >= key;
 	}
 }

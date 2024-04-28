@@ -12,6 +12,10 @@
 		"handlebars": "^4.7.8",
 		"socket.io": "^4.7.5",
 		"tinymce": "^7.0.0",
+		"typedoc": "^0.25.13",
 		"typescript": "^5.4.4"
+	},
+	"scripts": {
+		"generate-docs": "typedoc --options typedoc.json"
 	}
 }
