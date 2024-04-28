@@ -197,12 +197,12 @@ export class MembershipAPI {
 	/**
 	 * Default Membership levels for Developer Mode.
 	 */
-	DEVELOPER_LEVELS = ['member', 'benefactor', 'benefactorOfKnowledge'] as const;
+	DEVELOPER_LEVELS = ['member', 'benefactor', 'benefactorOfKnowledge'];
 
 	/**
 	 * Default Membership for Developer Mode.
 	 */
-	DEVELOPER_MEMBERSHIP: (typeof this.DEVELOPER_LEVELS)[number] = 'member';
+	DEVELOPER_MEMBERSHIP = 'member';
 
 	/**
 	 * Default Admin status for Developer Mode.
