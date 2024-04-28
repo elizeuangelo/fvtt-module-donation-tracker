@@ -12,7 +12,19 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout code
-              uses: actions/checkout@v2
+              uses: actions/checkout@v4
+
+            - name: Install Dependencies
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+            - run: npm install
+
+            - name: Build Project
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+            - run: tsc
 
             - name: Get the version
               id: get_version
@@ -29,9 +41,8 @@ jobs:
               env:
                   version: ${{ steps.get_version.outputs.VERSION_NUMBER }}
 
-            # Zip Files
             - name: Zip files
-              run: zip -r module * -x ".github/*" "assets/*" "*.md" "*.ts" "tsconfig.json"
+              run: zip -r module * -x ".github/*" "assets/*" "*.ts" "releases.md" "README.md" "types/*" "package-lock.json" "package.json" "tsconfig.json" "node_modules/*"
 
             # Create a release for this specific version
             - name: Create Release

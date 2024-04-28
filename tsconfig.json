@@ -1,15 +1,21 @@
 {
-    "compilerOptions": {
-      "types": ["@league-of-foundry-developers/foundry-vtt-types"],
-      "lib": ["ESNEXT", "DOM", "DOM.Iterable"],
-      "target": "ESNEXT",
-      "module": "ESNEXT",
-      //"strict": true,
-      "strictNullChecks": true,
-      "alwaysStrict": true,
-      "removeComments": true,
-      "moduleResolution": "node",
-      "resolveJsonModule": true,
-      "allowSyntheticDefaultImports": true,
-    },
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"strict": true,
+		"skipLibCheck": true,
+		"isolatedModules": true,
+		"resolveJsonModule": true,
+		"esModuleInterop": true,
+		"jsx": "preserve",
+		"allowJs": true,
+		"checkJs": true,
+		"noImplicitOverride": true,
+		"lib": ["esnext", "dom", "dom.iterable"],
+		"typeRoots": ["node_modules", "types"],
+		"types": ["foundry", "@types/jquery"]
+	},
+	"include": ["main.ts", "global.d.ts", "types"],
+	"exclude": ["node_modules"]
 }

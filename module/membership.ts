@@ -161,13 +161,22 @@ export class MembershipAPI {
 		if (timeDiff > this.#cache_time) await this.refresh();
 		return myMembershipLevelSync(this.#cache!);
 	};
+	DEVELOPER_CONFIG = {};
 	constructor() {
 		this.refresh();
 	}
 	async refresh() {
+		if (this.devMode) {
+			this.#cache = mergeObject({}, this.DEVELOPER_CONFIG);
+			this.#last = Date.now();
+			return;
+		}
 		if (!API.isValid()) return;
 		this.#cache = await Promise.all([API.myDonations(), API.rates()]);
 		this.#last = Date.now();
+	}
+	get devMode(): boolean {
+		return getSetting('server') === '';
 	}
 	get isAdmin() {
 		return API.isAdmin();
