@@ -189,7 +189,10 @@ export class MembershipAPI {
 	}
 
 	constructor() {
-		this.refresh();
+		this.refresh().then(() => {
+			console.log('Membership API Ready');
+			Hooks.callAll('membershipReady', this);
+		});
 	}
 
 	// ---------------------------------------- //
