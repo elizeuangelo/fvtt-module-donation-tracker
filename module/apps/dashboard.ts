@@ -534,6 +534,7 @@ export class Dashboard extends Application {
 		html.find('[data-action]').each((idx, el) =>
 			el.addEventListener('click', () => actions[el.dataset.action!].call(this, el))
 		);
+		this.addFilterPeriodsListeners(html);
 	}
 
 	override async getData() {
@@ -638,11 +639,57 @@ export class Dashboard extends Application {
 		};
 	}
 
+	protected updateTableRowVisibility(tr: HTMLTableRowElement) {
+		const show = tr.dataset.periodHidden !== 'true' && tr.dataset.searchHidden !== 'true';
+		if (show) {
+			tr.removeAttribute('hidden');
+		} else {
+			tr.setAttribute('hidden', '');
+		}
+	}
+
 	protected override _onSearchFilter(_ev: KeyboardEvent, _query: string, rgx: RegExp, html: HTMLElement): void {
 		html.querySelectorAll<HTMLTableRowElement>('tbody tr').forEach((tr) => {
 			const show = [...tr.querySelectorAll('td')].some((td) => td.textContent?.match(rgx));
-			if (show) tr.removeAttribute('hidden');
-			else tr.setAttribute('hidden', '');
+			if (show) tr.dataset.searchHidden = 'false';
+			else tr.dataset.searchHidden = 'true';
+			this.updateTableRowVisibility(tr);
+		});
+	}
+
+	#filterPeriods = [
+		{ inputSelector: 'select[name="filter-period-members"]', contentSelector: '#members' },
+		{ inputSelector: 'select[name="filter-period-donations"]', contentSelector: '#donations' },
+	];
+	protected addFilterPeriodsListeners(html: JQuery<HTMLElement>) {
+		this.#filterPeriods.forEach(({ inputSelector, contentSelector }) => {
+			const target = html.find(contentSelector);
+			html.find(inputSelector).on('change', (ev) => {
+				this._onSelectFilterPeriod(ev, target);
+			});
+			html.find(inputSelector).trigger('change');
+		});
+	}
+	protected _onSelectFilterPeriod(event: JQuery.ChangeEvent, target: JQuery<HTMLElement>) {
+		const periods = {
+			month: '1m',
+			year: '1y',
+		};
+		const value = event.currentTarget.value as string;
+		if (!(value in periods)) {
+			target.find('tbody tr').each((_idx, tr) => {
+				tr.removeAttribute('hidden');
+			});
+			return;
+		}
+		const period = periods[value as keyof typeof periods];
+		const since = Date.now() - parseTime(period)!;
+		target.find<HTMLTableRowElement>('tbody tr').each((_idx, tr) => {
+			const timestamp = new Date(tr.dataset.timestamp!).getTime();
+			const show = timestamp > since;
+			if (show) tr.dataset.periodHidden = 'false';
+			else tr.dataset.periodHidden = 'true';
+			this.updateTableRowVisibility(tr);
 		});
 	}
 

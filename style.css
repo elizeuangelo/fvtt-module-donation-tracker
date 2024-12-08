@@ -48,7 +48,7 @@
 }
 
 .donation-tracker div.table {
-	max-height: 500px;
+	height: 500px;
 	overflow-y: auto;
 }
 
@@ -83,15 +83,18 @@
 	max-width: 130px;
 }
 
-.donation-tracker .search {
-	width: 30%;
-	margin-left: 70%;
+.donation-tracker .filters {
+	display: flex;
+	width: 100%;
+	flex-direction: row-reverse;
+	gap: 1rem;
+	align-items: center;
 }
 
-.donation-tracker .search label {
-	float: right;
-	flex: 0;
-	padding-right: 10px;
+.donation-tracker .filters label {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
 }
 
 body.system-dnd5e input[type='datetime-local'] {

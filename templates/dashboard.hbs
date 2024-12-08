@@ -23,7 +23,7 @@
                 </thead>
                 <tbody style="text-align: center">
                     {{#each members}}
-                    <tr {{#if special_membership}}class="special-member"{{/if}}>
+                    <tr {{#if special_membership}}class="special-member"{{/if}} data-timestamp="{{last_login}}">
                         <td>{{last_login}}</td>
                         <td title="{{name}}" style="font-weight:bold">{{name}}</td>
                         <td title="{{email}}">{{email}}</td>
@@ -41,9 +41,19 @@
                 </tbody>
             </table>
         </div>
-        <div class="form-group search">
-            <label>Search</label>
-            <input type="text" name="filter-members">
+        <div class="filters">
+            <label>
+                Search
+                <input type="text" name="filter-members" style="width: 200px">
+            </label>
+            <label>
+                Filter by Time Period
+                <select name="filter-period-members">
+                    <option value="all">All</option>
+                    <option value="month" selected="selected">Last Month</option>
+                    <option value="year">Last Year</option>
+                </select>
+            </label>
         </div>
         <hr>
         <div class="summary">
@@ -96,9 +106,19 @@
                 </tbody>
             </table>
         </div>
-        <div class="form-group search">
-            <label>Search</label>
-            <input type="text" name="filter-donations">
+        <div class="filters">
+            <label>
+                Search
+                <input type="text" name="filter-donations" style="width: 200px">
+            </label>
+            <label>
+                Filter by Time Period
+                <select name="filter-period-donations">
+                    <option value="all">All</option>
+                    <option value="month" selected="selected">Last Month</option>
+                    <option value="year">Last Year</option>
+                </select>
+            </label>
         </div>
         <hr>
         <div class="summary">

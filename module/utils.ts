@@ -2,10 +2,11 @@ export function parseTime(time: string) {
 	const table = {
 		d: 86_400_000,
 		w: 604_800_000,
-		m: 2_292_000_000,
+		m: 2_592_000_000,
+		y: 31_536_000_000,
 	};
 
-	const rgx = /([0-9]+) ?(d|w|m)/;
+	const rgx = /([0-9]+) ?(d|w|m|y)/;
 	const match = rgx.exec(time);
 	if (match === null) {
 		console.error(`Cant parse time from string: ${time}`);
