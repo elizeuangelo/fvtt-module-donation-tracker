@@ -622,6 +622,7 @@ export class Dashboard extends Application {
 				membersLastPeriod: members.filter((m) => m.last_login_value > since).length,
 				membersDonatedLastPeriod: members.filter((m) => m.donated > 0).length,
 				donationsTotal: donations
+					.filter((d) => d.amount_value > 0 && d.currency in this.rates.rates)
 					.reduce((a, b) => a + +b.amount / this.rates.rates[b.currency], 0)
 					.toLocaleString('en-US', {
 						style: 'currency',
@@ -629,6 +630,7 @@ export class Dashboard extends Application {
 					}),
 				donationsLength: donations.length,
 				donationsLastPeriod: donationsLastPeriod
+					.filter((d) => d.amount_value > 0 && d.currency in this.rates.rates)
 					.reduce((a, b) => a + +b.amount / this.rates.rates[b.currency], 0)
 					.toLocaleString('en-US', {
 						style: 'currency',
@@ -673,6 +675,9 @@ export class Dashboard extends Application {
 	protected _onSelectFilterPeriod(event: JQuery.ChangeEvent, target: JQuery<HTMLElement>) {
 		const periods = {
 			month: '1m',
+			month2: '2m',
+			month3: '3m',
+			month6: '6m',
 			year: '1y',
 		};
 		const value = event.currentTarget.value as string;

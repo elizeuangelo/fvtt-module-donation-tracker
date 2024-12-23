@@ -51,6 +51,9 @@
                 <select name="filter-period-members">
                     <option value="all">All</option>
                     <option value="month" selected="selected">Last Month</option>
+                    <option value="month2">2 Months</option>
+                    <option value="month3">3 Months</option>
+                    <option value="month6">6 Months</option>
                     <option value="year">Last Year</option>
                 </select>
             </label>
@@ -83,7 +86,8 @@
                 <tbody style="text-align: center">
                     {{#each donations}}
                     <tr {{#if (lt amount_value 0)}}class="refund"{{/if}}
-                        {{#if is_refunded}}class="refunded"{{/if}}>
+                        {{#if is_refunded}}class="refunded"{{/if}}
+                        data-timestamp="{{timestamp}}">
                         <td>{{timestamp}}</td>
                         <td style="font-weight:bold;" title="{{email}}">{{#if anonymous}}&lt;anonymous&gt;{{else}}{{email}}{{/if}}</td>
                         <td>{{amount}}</td>
@@ -116,6 +120,9 @@
                 <select name="filter-period-donations">
                     <option value="all">All</option>
                     <option value="month" selected="selected">Last Month</option>
+                    <option value="month2">2 Months</option>
+                    <option value="month3">3 Months</option>
+                    <option value="month6">6 Months</option>
                     <option value="year">Last Year</option>
                 </select>
             </label>
