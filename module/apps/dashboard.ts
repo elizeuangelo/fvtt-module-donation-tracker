@@ -17,7 +17,7 @@ export class Dashboard extends Application {
 				{ inputSelector: 'input[name="filter-members"]', contentSelector: '#members' },
 				{ inputSelector: 'input[name="filter-donations"]', contentSelector: '#donations' },
 			],
-			width: 880,
+			width: 970,
 			height: 'auto',
 		}) as FormApplicationOptions;
 	}
@@ -218,7 +218,7 @@ export class Dashboard extends Application {
 			),
 			default: 'ok',
 			close: () => null,
-			render: (html) => {},
+			render: () => {},
 			buttons: {
 				ok: {
 					icon: '<i class="fas fa-check"></i>',
@@ -396,17 +396,28 @@ export class Dashboard extends Application {
 			const entry = donation.email || '_anonymous';
 			const similarKofi = this.donations.kofi[entry]?.donations.find((d) => {
 				const timeDiff = Math.abs(donation.timestamp - d.timestamp);
-				return timeDiff < 61_000 && d.amount === donation.amount && d.currency === donation.currency;
+				return (
+					timeDiff < 43_200_000 &&
+					donation.email === d.email &&
+					d.amount === donation.amount &&
+					d.currency === donation.currency
+				);
 			});
-			const similarManual = this.donations.manual[entry]?.donations.find(
-				(d) => donation.timestamp === d.timestamp && d.amount === donation.amount && d.currency === donation.currency
-			);
+			const similarManual = this.donations.manual[entry]?.donations.find((d) => {
+				const timeDiff = Math.abs(donation.timestamp - d.timestamp);
+				return (
+					timeDiff < 43_200_000 &&
+					donation.email === d.email &&
+					d.amount === donation.amount &&
+					d.currency === donation.currency
+				);
+			});
 			return Boolean(similarKofi || similarManual);
 		};
 		function previewTable(donations: API.Donation[]) {
 			return Dialog.prompt({
 				title: 'Import Preview',
-				options: { height: 'auto', width: 700, classes: ['dialog', 'donation-tracker'] },
+				options: { height: 'auto', width: 820, classes: ['dialog', 'donation-tracker'] },
 				content: /*html*/ Handlebars.compile(`
                     <div class="table">
                         <table>
@@ -461,16 +472,19 @@ export class Dashboard extends Application {
 		}
 		const additions: API.Donation[] = [];
 		additions.push(
-			...rows.map((d) => ({
-				id: randomID(),
-				timestamp: new Date(d['DateTime (UTC)']).getTime(),
-				email: d['BuyerEmail'],
-				currency: d['Currency'],
-				amount: d['Received'],
-				comment: `${d.TransactionType}${d.Item ? ` (${d.Item})` : ''}${'From' in d ? ` [${d.From}]` : ''}${
-					'Message' in d ? `: ${d.Message}` : ''
-				}`,
-			}))
+			...rows
+				.filter((row) => +row['Received'] > 0)
+				.map((d) => ({
+					id: randomID(),
+					timestamp: new Date(d['DateTime (UTC)']).getTime(),
+					email: d['BuyerEmail'],
+					currency: d['Currency'],
+					amount: d['Received'],
+					comment: `${d.TransactionType}${d.Item ? ` (${d.Item})` : ''}${'From' in d ? ` [${d.From}]` : ''}${
+						'Message' in d ? `: ${d.Message}` : ''
+					}`,
+				}))
+				.sort((a, b) => b.timestamp - a.timestamp)
 		);
 		const include = await previewTable(additions);
 		if (!include || include.length === 0) return;
