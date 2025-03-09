@@ -27,7 +27,10 @@
                         <td>{{last_login}}</td>
                         <td title="{{name}}" style="font-weight:bold">{{name}}</td>
                         <td title="{{email}}">{{email}}</td>
-                        <td title="{{membership}}">{{membership}}</td>
+                        <td title="{{membership}}">
+                            {{membership}}
+                            {{#if temporaryMembership}}(gift){{/if}}
+                        </td>
                         <td>{{donatedParsed}}</td>
                         <td>{{donatedAllParsed}}</td>
                         <td>

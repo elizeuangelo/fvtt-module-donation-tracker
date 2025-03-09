@@ -128,7 +128,7 @@ export class Dashboard extends Application {
             `)({ date, membership }),
 			default: 'set',
 			close: () => null,
-			render: (html) => {},
+			render: () => {},
 			buttons: {
 				set: {
 					icon: '<i class="fas fa-save"></i>',
@@ -153,7 +153,7 @@ export class Dashboard extends Application {
 				remove: {
 					icon: '<i class="fas fa-trash"></i>',
 					label: 'Remove',
-					callback: async (html) => {
+					callback: async () => {
 						await user.setFlag(MODULE_ID, 'special-membership', null);
 						ui.notifications.info(`Membership from user ${user.name} removed`);
 						this.render();
@@ -577,6 +577,7 @@ export class Dashboard extends Application {
 						style: 'currency',
 						currency: membershipLevels.base_currency,
 					}),
+					temporaryMembership: membership.temporary,
 				};
 			})
 			.sort((a, b) => b.donated - a.donated);

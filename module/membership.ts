@@ -14,6 +14,8 @@ export interface Membership {
 	period: string;
 	levels: MembershipEntry[];
 	gmLevel?: string;
+	registrationGiftPeriod?: string;
+	registrationGiftLevel?: string;
 }
 
 export interface Rates {
@@ -32,6 +34,7 @@ interface Member {
 	last_login: number;
 	kofi: API.KofiUserData['donations'];
 	manual: API.ManualData['donations'];
+	registration?: number;
 }
 
 /**
@@ -76,6 +79,7 @@ export function myMembershipLevelSync(promises: [Awaited<ReturnType<typeof API.m
 			email: myDonations.kofi?.email ?? myDonations.manual.email,
 			kofi: myDonations.kofi.donations,
 			manual: myDonations.manual.donations,
+			registration: game.user.getFlag(MODULE_ID, 'registeredAt') as number | undefined,
 		},
 		rates,
 		membershipLevels
@@ -100,9 +104,27 @@ export function getMembersData(
 				last_login: u.last_login,
 				kofi: donations.kofi[u.email]?.donations ?? [],
 				manual: donations.manual[u.email]?.donations ?? [],
+				registration: u.id ? (game.users.get(u.id)?.getFlag(MODULE_ID, 'registeredAt') as number | undefined) : undefined,
 			})
 	);
 	return members;
+}
+
+/**
+ * @hidden
+ */
+export function calcWelcomeGiftMembershipLevel(data: Member, membershipLevels = getSetting('membershipLevels')): number {
+	if (!membershipLevels.registrationGiftPeriod) return -1;
+	const period = parseTime(membershipLevels.registrationGiftPeriod);
+	if (!period) {
+		console.error('Bad membership period');
+		return -1;
+	}
+	const since = Date.now() - period;
+	if (data.registration && data.registration > since) {
+		return membershipLevels.levels.findIndex((entry) => entry.id === membershipLevels.registrationGiftLevel) ?? -1;
+	}
+	return -1;
 }
 
 /**
@@ -163,7 +185,17 @@ export function calcMembershipLevel(data: Member, rates: Rates, membershipLevels
 		}
 	}
 
-	return { membership, donated, donatedAll };
+	const welcomeGiftMembershipLevel = calcWelcomeGiftMembershipLevel(data, membershipLevels);
+	let temporary = false;
+	if (membership === null && welcomeGiftMembershipLevel > -1) {
+		const isBetter = welcomeGiftMembershipLevel > membershipLevels.levels.findIndex((entry) => entry.id === membership?.id);
+		if (isBetter) {
+			membership = membershipLevels.levels[welcomeGiftMembershipLevel];
+			temporary = true;
+		}
+	}
+
+	return { membership, donated, donatedAll, temporary };
 }
 
 /**
@@ -188,8 +220,22 @@ export class MembershipAPI {
 		return myMembershipLevelSync(this.#cache!);
 	}
 
+	/**
+	 * Ensures that the user's registration timestamp is recorded in their flags.
+	 * If no registration timestamp exists, sets it to the current time.
+	 * @remarks This method checks and maintains user registration data in the module's flags.
+	 */
+	async ensuresRegistrationLog(): Promise<void> {
+		if (this.membershipLevel === -1) return;
+		if (game.user.getFlag(MODULE_ID, 'registeredAt') === undefined) {
+			await game.user.setFlag(MODULE_ID, 'registeredAt', Date.now());
+			return;
+		}
+	}
+
 	constructor() {
-		this.refresh().then(() => {
+		this.refresh().then(async () => {
+			await this.ensuresRegistrationLog();
 			console.log('Membership API Ready');
 			Hooks.callAll('membershipReady', this);
 		});

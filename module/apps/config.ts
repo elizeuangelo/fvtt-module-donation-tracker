@@ -180,6 +180,19 @@ export class DTConfig extends FormApplication<any> {
 			this.preview.period = input.value;
 			this.render();
 		});
+		html.find('input[name=registration-gift-period]').on('change', (ev) => {
+			const input = ev.currentTarget as HTMLInputElement;
+			if (!input.checkValidity()) {
+				ui.notifications.error('Invalid period input');
+				return;
+			}
+			this.preview.registrationGiftPeriod = input.value;
+			this.render();
+		});
+		html.find('select[name=registration-gift-level]').on('change', (ev) => {
+			this.preview.registrationGiftLevel = (ev.currentTarget as HTMLSelectElement).value;
+			this.render();
+		});
 	}
 
 	//@ts-ignore
@@ -197,6 +210,8 @@ export class DTConfig extends FormApplication<any> {
 				accrued: entry.accrued.toLocaleString('en-US', { style: 'currency', currency: this.preview.base_currency }),
 				members: memberships.filter((m) => m.membership === entry).length,
 			})),
+			registrationGiftPeriod: this.preview.registrationGiftPeriod,
+			registrationGiftLevel: this.preview.registrationGiftLevel,
 		};
 	}
 

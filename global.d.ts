@@ -1,3 +1,5 @@
+import type { MembershipAPI } from './module/membership.ts';
+
 declare global {
 	interface LenientGlobalVariableTypes {
 		canvas: never;
