@@ -13,7 +13,7 @@
 	"styles": ["./style.css"],
 	"compatibility": {
 		"minimum": 11,
-		"verified": "11.315"
+		"verified": 12
 	},
 	"url": "this is auto replaced",
 	"bugs": "this is auto replaced",
