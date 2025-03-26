@@ -2,7 +2,7 @@
 	"id": "donation-tracker",
 	"title": "Donation Tracker",
 	"description": "Communicates with the Donation Tracker API.",
-	"version": "this is auto replaced",
+	"version": "1.3.0",
 	"authors": [
 		{
 			"name": "Mad Wizard",
