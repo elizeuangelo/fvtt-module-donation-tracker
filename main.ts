@@ -14,7 +14,11 @@ Hooks.once('ready', async () => {
 		game.membership = new MembershipAPI();
 		return;
 	} else if (!(await API.checkService())) {
-		console.log(`%cDonation-Tracker %c| Service is offline, module disabled`, 'color:red;font-weight:bold', '');
+		console.log(
+			`%cDonation-Tracker %c| Service is offline, module disabled`,
+			'color:red;font-weight:bold',
+			''
+		);
 		return;
 	}
 	createButton(ui.sidebar.tabs.settings!.element);
@@ -22,5 +26,5 @@ Hooks.once('ready', async () => {
 	game.membership = new MembershipAPI();
 
 	// Open Membership Screen
-	if (!API.isValid()) (document.getElementById('dt-btn') as HTMLButtonElement).click();
+	// if (!API.isValid()) (document.getElementById('dt-btn') as HTMLButtonElement).click();
 });
