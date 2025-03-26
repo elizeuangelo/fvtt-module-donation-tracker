@@ -16,6 +16,9 @@
 		"typescript": "^5.4.4"
 	},
 	"scripts": {
-		"generate-docs": "typedoc --options typedoc.json"
+		"generate-docs": "typedoc --options typedoc.json",
+		"update-patch": "npm version patch && git push && git push --tags",
+		"update-minor": "npm version minor && git push && git push --tags",
+		"update-major": "npm version major && git push && git push --tags"
 	}
 }
