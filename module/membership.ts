@@ -104,7 +104,9 @@ export function getMembersData(
 				last_login: u.last_login,
 				kofi: donations.kofi[u.email]?.donations ?? [],
 				manual: donations.manual[u.email]?.donations ?? [],
-				registration: u.id ? (game.users.get(u.id)?.getFlag(MODULE_ID, 'registeredAt') as number | undefined) : undefined,
+				registration: u.id
+					? (game.users.get(u.id)?.getFlag(MODULE_ID, 'registeredAt') as number | undefined)
+					: undefined,
 			})
 	);
 	return members;
@@ -113,7 +115,10 @@ export function getMembersData(
 /**
  * @hidden
  */
-export function calcWelcomeGiftMembershipLevel(data: Member, membershipLevels = getSetting('membershipLevels')): number {
+export function calcWelcomeGiftMembershipLevel(
+	data: Member,
+	membershipLevels = getSetting('membershipLevels')
+): number {
 	if (!membershipLevels.registrationGiftPeriod) return -1;
 	const period = parseTime(membershipLevels.registrationGiftPeriod);
 	if (!period) {
@@ -188,7 +193,8 @@ export function calcMembershipLevel(data: Member, rates: Rates, membershipLevels
 	const welcomeGiftMembershipLevel = calcWelcomeGiftMembershipLevel(data, membershipLevels);
 	let temporary = false;
 	if (membership === null && welcomeGiftMembershipLevel > -1) {
-		const isBetter = welcomeGiftMembershipLevel > membershipLevels.levels.findIndex((entry) => entry.id === membership?.id);
+		const isBetter =
+			welcomeGiftMembershipLevel > membershipLevels.levels.findIndex((entry) => entry.id === membership?.id);
 		if (isBetter) {
 			membership = membershipLevels.levels[welcomeGiftMembershipLevel];
 			temporary = true;
@@ -302,6 +308,13 @@ export class MembershipAPI {
 	 */
 	get membership(): string | undefined {
 		return this.devMode ? this.DEVELOPER_MEMBERSHIP : this.#getData()?.membership?.id;
+	}
+
+	/**
+	 * Returns the user membership name.
+	 */
+	get membershipTitle(): string | undefined {
+		return this.devMode ? 'Developer' : this.#getData()?.membership?.name;
 	}
 
 	/**

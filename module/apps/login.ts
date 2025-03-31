@@ -54,8 +54,8 @@ export class LoginApp extends Application {
 				this.element.find('#account-membership').val('Loading...');
 				this.activateTab('finish');
 				await game.membership.ensuresRegistrationLog();
-				const user = await myMembershipLevel();
-				this.element.find('#account-membership').val(user?.membership?.name ?? 'None');
+				await game.membership.refresh();
+				this.element.find('#account-membership').val(game.membership.membershipTitle ?? 'None');
 			}
 		} catch {
 			ui.notifications.error('Some error ocurred when confirming the code');
