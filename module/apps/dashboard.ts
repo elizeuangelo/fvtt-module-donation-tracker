@@ -29,11 +29,10 @@ export class Dashboard extends Application {
 
 	async refreshData(target?: HTMLElement) {
 		if (target) target.querySelector('i')?.classList.add('fa-spin');
-		const promises = [API.getUsers(), API.allDonations(), API.rates()] as const;
-		const [users, allDonations, rates] = await Promise.all(promises);
-		this.users = users;
-		this.donations = allDonations;
-		this.rates = rates;
+		await game.membership.refresh();
+		this.users = game.membership.cache.users!;
+		this.donations = game.membership.cache.donations!;
+		this.rates = game.membership.cache.rates!;
 		if (target) target.querySelector('i')?.classList.remove('fa-spin');
 	}
 
@@ -100,7 +99,10 @@ export class Dashboard extends Application {
 	specialMembership(el: HTMLElement) {
 		const user = game.users.get(el.dataset.entry as string);
 		if (!user) return ui.notifications.error(`Can't find user`);
-		const current = user.getFlag(MODULE_ID, 'special-membership') as undefined | null | { exp: number; membership: string };
+		const current = user.getFlag(MODULE_ID, 'special-membership') as
+			| undefined
+			| null
+			| { exp: number; membership: string };
 		const date = current?.exp ? new Date(current.exp).toISOString().slice(0, 16) : '';
 		const membership = getSetting('membershipLevels').levels.map((m) => ({
 			name: m.name,
@@ -262,7 +264,9 @@ export class Dashboard extends Application {
 								this.donations.manual[entryId] ??= { email: entry.email, donations: [] };
 								this.donations.manual[entryId].donations.push(entryData);
 							} else {
-								const realEntry = this.donations.manual[entryId].donations.find((e) => e.id === entry.id)!;
+								const realEntry = this.donations.manual[entryId].donations.find(
+									(e) => e.id === entry.id
+								)!;
 								if (
 									entry.timestamp === realEntry.timestamp &&
 									entry.email === realEntry.email &&
@@ -389,7 +393,16 @@ export class Dashboard extends Application {
 
 	async importKofiCSV() {
 		function matchPaymentCSV(headers: string[]) {
-			const target = ['DateTime (UTC)', 'From', 'Message', 'Item', 'Received', 'Currency', 'TransactionType', 'BuyerEmail'];
+			const target = [
+				'DateTime (UTC)',
+				'From',
+				'Message',
+				'Item',
+				'Received',
+				'Currency',
+				'TransactionType',
+				'BuyerEmail',
+			];
 			return target.every((v) => headers.includes(v));
 		}
 		const isDuplicate = (donation: API.Donation) => {
@@ -566,7 +579,8 @@ export class Dashboard extends Application {
 					last_login_value: data.last_login,
 					email: data.email,
 					membership: membership.membership?.name ?? '<None>',
-					special_membership: Boolean(game.users.get(data.id ?? '')?.getFlag(MODULE_ID, 'special-membership')) ?? false,
+					special_membership:
+						Boolean(game.users.get(data.id ?? '')?.getFlag(MODULE_ID, 'special-membership')) ?? false,
 					donated: membership.donated,
 					donatedAll: membership.donatedAll,
 					donatedParsed: membership.donated.toLocaleString('en-US', {
@@ -605,7 +619,8 @@ export class Dashboard extends Application {
 					'comment' in d
 						? d.comment
 						: `${d.type}${d.tier_name ? ` (${d.tier_name})` : ''}${d.message ? `: ${d.message}` : ''}`,
-				last_modified_at: 'last_modified_at' in d ? new Date(d.last_modified_at).toISOString().slice(0, 16) : '-',
+				last_modified_at:
+					'last_modified_at' in d ? new Date(d.last_modified_at).toISOString().slice(0, 16) : '-',
 				last_modified_by: 'last_modified_by' in d ? d.last_modified_by : '-',
 				mutate: canMutate,
 				can_modify: 'last_modified_by' in d && canMutate,

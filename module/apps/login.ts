@@ -92,7 +92,7 @@ export class LoginApp extends Application {
 		const name = info?.name ?? info?.id ? game.users.get(info.id!)?.name ?? '<unknown>' : null;
 		return {
 			name,
-			membership: (await myMembershipLevel())?.membership?.name ?? 'None',
+			membership: game.membership.membershipTitle ?? 'None',
 			email: info?.email ?? '',
 			expired: info?.email && !API.isValid(),
 			donation_link: getSetting('donationLinks'),

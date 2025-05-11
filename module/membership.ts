@@ -58,16 +58,16 @@ function convertRates(data: Rates, to: string) {
 export async function myMembershipLevel() {
 	const payload = API.getTokenInformation();
 	if (!payload) return null;
-	return myMembershipLevelSync(await Promise.all([API.myDonations(), API.rates()]));
+	const [myDonations, rates] = await Promise.all([API.myDonations(), API.rates()]);
+	return myMembershipLevelSync(myDonations, rates);
 }
 
 /**
  * @hidden
  */
-export function myMembershipLevelSync(promises: [Awaited<ReturnType<typeof API.myDonations>>, Rates]) {
+export function myMembershipLevelSync(myDonations: Awaited<ReturnType<typeof API.myDonations>>, rates: Rates) {
 	const payload = API.getTokenInformation();
 	if (!payload) return null;
-	const [myDonations, rates] = promises;
 	const membershipLevels = getSetting('membershipLevels');
 
 	return calcMembershipLevel(
@@ -91,12 +91,13 @@ export function myMembershipLevelSync(promises: [Awaited<ReturnType<typeof API.m
  */
 export function getMembersData(
 	users: Awaited<ReturnType<typeof API.getUsers>>,
-	donations: Awaited<ReturnType<typeof API.allDonations>>
+	donations: Awaited<ReturnType<typeof API.allDonations>>,
+	key: 'id' | 'email' = 'email'
 ) {
 	const members: Record<string, Member> = {};
 	users.forEach(
 		(u) =>
-			(members[u.email] = {
+			(members[u[key]] = {
 				id: u.id,
 				admin: Boolean(u.name),
 				email: u.email,
@@ -204,13 +205,27 @@ export function calcMembershipLevel(data: Member, rates: Rates, membershipLevels
 	return { membership, donated, donatedAll, temporary };
 }
 
+interface CacheData {
+	myDonations: Awaited<ReturnType<typeof API.myDonations>> | null;
+	rates: Rates | null;
+	users: Awaited<ReturnType<typeof API.getUsers>> | null;
+	donations: Awaited<ReturnType<typeof API.allDonations>> | null;
+	members: Awaited<ReturnType<typeof getMembersData>> | null;
+}
+
 /**
  * The Basic Membership API for managing membership levels and permissions.
  * Instantiated on the `game.membership` object.
  */
 export class MembershipAPI {
-	#cache: undefined | [Awaited<ReturnType<typeof API.myDonations>>, Rates];
-	#cache_time = 5 * 60 * 1000;
+	cache: CacheData = {
+		myDonations: null,
+		rates: null,
+		users: null,
+		donations: null,
+		members: null,
+	};
+	#cache_time = 5 * 60 * 1_000;
 	#last = null as null | number;
 
 	/**
@@ -220,10 +235,28 @@ export class MembershipAPI {
 	 * @returns The membership level data.
 	 */
 	#getData(): ReturnType<typeof myMembershipLevelSync> | undefined {
-		if (!API.isValid()) return (this.#cache = undefined);
+		if (!API.isValid()) {
+			this.cache.myDonations = null;
+			this.cache.rates = null;
+			return;
+		}
 		const timeDiff = Date.now() - (this.#last || 0);
 		if (timeDiff > this.#cache_time) this.refresh();
-		return myMembershipLevelSync(this.#cache!);
+		return myMembershipLevelSync(this.cache.myDonations!, this.cache.rates!);
+	}
+
+	#getUserData(user: string | User): ReturnType<typeof calcMembershipLevel> | undefined {
+		if (!this.isAdmin) {
+			this.cache.donations = null;
+			this.cache.users = null;
+			this.cache.rates = null;
+			return;
+		}
+		const timeDiff = Date.now() - (this.#last || 0);
+		if (timeDiff > this.#cache_time) this.refresh();
+		const userId = typeof user === 'string' ? user : user.id;
+		const member = this.cache.members![userId];
+		return calcMembershipLevel(member, this.cache.rates!, this.membershipsInfo);
 	}
 
 	/**
@@ -331,7 +364,12 @@ export class MembershipAPI {
 	async refresh(): Promise<void> {
 		if (this.devMode) return;
 		if (!API.isValid()) return;
-		this.#cache = await Promise.all([API.myDonations(), API.rates()]);
+		[this.cache.myDonations, this.cache.rates] = await Promise.all([API.myDonations(), API.rates()]);
+		if (this.isAdmin) {
+			this.cache.users = await API.getUsers();
+			this.cache.donations = await API.allDonations();
+			this.cache.members = getMembersData(this.cache.users, this.cache.donations, 'id');
+		}
 		this.#last = Date.now();
 	}
 
@@ -344,5 +382,38 @@ export class MembershipAPI {
 		if (this.isAdmin) return true;
 		const myLevel = this.membershipLevel;
 		return myLevel >= key;
+	}
+
+	/**
+	 * Retrieves the membership ID for a specified user.
+	 *
+	 * @param user - The user to get membership for, can be a User object or a user ID string
+	 * @returns The membership ID as a string, or undefined if no membership exists
+	 * @throws Error if the current user is not an admin
+	 */
+	userMembership(user: string | User): string | undefined {
+		if (!this.isAdmin) {
+			throw new Error('You need to be an admin to access other users membership');
+		}
+		return this.#getUserData(user)?.membership?.id;
+	}
+
+	/**
+	 * Checks if a user has permission at or above a specified rank level.
+	 *
+	 * @param user - The user to check, either as a string ID or User object
+	 * @param key - The rank to check against, either as a string rank name or numeric rank level
+	 * @returns True if the user's membership rank is greater than or equal to the specified rank level, false otherwise
+	 * @throws Error if the current user is not an admin
+	 *
+	 * If the user has no membership, they are assigned the 'NONE' rank.
+	 * If a string key is provided, it will be converted to its numeric rank value.
+	 * If the key is not found in RANKS, it defaults to -1.
+	 */
+	userHasPermission(user: string | User, key: string | number): boolean {
+		const membershipId = this.userMembership(user);
+		const userLevel = this.RANKS[membershipId ?? 'NONE'];
+		if (typeof key === 'string') key = this.RANKS[key] ?? -1;
+		return userLevel >= key;
 	}
 }

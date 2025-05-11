@@ -69,7 +69,7 @@ export interface ManualData {
 }
 
 interface User {
-	id?: string;
+	id: string;
 	name?: string;
 	email: string;
 	last_login: number;
