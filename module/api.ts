@@ -118,19 +118,18 @@ export async function checkService() {
 }
 
 export function requestCode(email: string) {
-	const data = { id: game.user.id, email };
+	const data = { id: game.user.id, email: email.toLowerCase() };
 	return fetch(getRoute('/login'), { method: 'POST', body: JSON.stringify(data) });
 }
 
 export function verifyCode(email: string, code: string) {
-	const data = { email, code };
+	const data = { code, email: email.toLowerCase() };
 	return fetch(getRoute('/verify'), { method: 'POST', body: JSON.stringify(data) });
 }
 
 export async function myDonations() {
 	const manual = (await (await fetch(getRoute('/manual/me'), { headers: getHeaders() })).json()) as ManualData;
 	const kofi = (await (await fetch(getRoute('/kofi/me'), { headers: getHeaders() })).json()) as KofiUserData;
-
 	return { manual, kofi };
 }
 
@@ -157,8 +156,14 @@ export function checkPermission(perm: Permissions) {
 }
 
 export async function allDonations() {
-	const manual = (await (await fetch(getRoute('/manual/all'), { headers: getHeaders() })).json()) as Record<string, ManualData>;
-	const kofi = (await (await fetch(getRoute('/kofi/all'), { headers: getHeaders() })).json()) as Record<string, KofiUserData>;
+	const manual = (await (await fetch(getRoute('/manual/all'), { headers: getHeaders() })).json()) as Record<
+		string,
+		ManualData
+	>;
+	const kofi = (await (await fetch(getRoute('/kofi/all'), { headers: getHeaders() })).json()) as Record<
+		string,
+		KofiUserData
+	>;
 	return { manual, kofi };
 }
 

@@ -18,7 +18,7 @@ export class LoginApp extends Application {
 	email: string | null = null;
 
 	async sendEmail() {
-		const email = this.element.find('input[name=email]').val() as string;
+		const email = (this.element.find('input[name=email]').val() as string).toLowerCase();
 		this.email = email;
 		const btn = this.element.find('#email');
 		btn.prop('disabled', true);
