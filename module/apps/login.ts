@@ -53,8 +53,8 @@ export class LoginApp extends Application {
 				this.element.find('#account-name').val(game.users.get(info.id!)?.name ?? '<unknown>');
 				this.element.find('#account-membership').val('Loading...');
 				this.activateTab('finish');
-				await game.membership.ensuresRegistrationLog();
 				await game.membership.refresh();
+				await game.membership.ensuresRegistrationLog();
 				this.element.find('#account-membership').val(game.membership.membershipTitle ?? 'None');
 			}
 		} catch {
