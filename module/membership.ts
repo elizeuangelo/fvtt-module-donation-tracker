@@ -273,7 +273,7 @@ export class MembershipAPI {
 	}
 
 	constructor() {
-		this.refresh().then(async () => {
+		this.refreshToken().then(async () => {
 			await this.ensuresRegistrationLog();
 			console.log('Membership API Ready');
 			Hooks.callAll('membershipReady', this);
@@ -371,6 +371,17 @@ export class MembershipAPI {
 			this.cache.members = getMembersData(this.cache.users, this.cache.donations, 'id');
 		}
 		this.#last = Date.now();
+	}
+
+	/**
+	 * Refreshes the token by calling the API.
+	 * @returns A promise that resolves to the new token or null if in dev mode.
+	 */
+	async refreshToken(): Promise<string | null> {
+		if (this.devMode) return null;
+		const token = await API.refreshToken();
+		this.refresh();
+		return token;
 	}
 
 	/**

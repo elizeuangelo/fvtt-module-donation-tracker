@@ -1,5 +1,5 @@
 import { Rates } from './membership.js';
-import { getSetting } from './settings.js';
+import { getSetting, setSetting } from './settings.js';
 
 type Permissions = 'query' | 'mutate' | 'admin';
 interface TokenData {
@@ -125,6 +125,24 @@ export function requestCode(email: string) {
 export function verifyCode(email: string, code: string) {
 	const data = { code, email: email.toLowerCase() };
 	return fetch(getRoute('/verify'), { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function refreshToken() {
+	const response = await fetch(getRoute('/refresh'), {
+		method: 'POST',
+		headers: getHeaders(),
+		body: JSON.stringify({ id: game.user.id }),
+	});
+	if (response.ok) {
+		const data: {
+			token: string;
+		} = await response.json();
+		if (data.token) {
+			await setSetting('token', data.token);
+			return data.token;
+		}
+	}
+	return null;
 }
 
 export async function myDonations() {
