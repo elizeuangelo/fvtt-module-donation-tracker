@@ -274,7 +274,6 @@ export class MembershipAPI {
 
 	constructor() {
 		this.refreshToken().then(async () => {
-			await this.refresh();
 			await this.ensuresRegistrationLog();
 			console.log('Membership API Ready');
 			Hooks.callAll('membershipReady', this);
@@ -381,7 +380,7 @@ export class MembershipAPI {
 	async refreshToken(): Promise<string | null> {
 		if (this.devMode) return null;
 		const token = await API.refreshToken();
-		this.refresh();
+		await this.refresh();
 		return token;
 	}
 
