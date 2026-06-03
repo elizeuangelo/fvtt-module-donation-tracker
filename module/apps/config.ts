@@ -1,8 +1,8 @@
+import * as API from '../api.js';
 import { MembershipEntry, calcMembershipLevel, getMembersData } from '../membership.js';
 import { PATH, getSetting, setSetting } from '../settings.js';
-import * as API from '../api.js';
-import { Dashboard } from './dashboard.js';
 import { slugifyCamelCase } from '../utils.js';
+import { Dashboard } from './dashboard.js';
 
 export const CURRENCIES = [
 	{
@@ -58,7 +58,7 @@ export class DTConfig extends FormApplication<any> {
 			name: '',
 			accrued: 0,
 			description: '',
-		}
+		},
 	) {
 		const oldEntry = this.preview.levels.find((e) => e.id === entry.id);
 
@@ -76,7 +76,7 @@ export class DTConfig extends FormApplication<any> {
                         <input type="text" name="name" value="${entry.name}" required>
                     </div>
                     <div class="form-group">
-                        <label>Accrued Value (${this.preview.base_currency})</label>
+                        <label>Accrued Value (${this.preview.baseCurrency})</label>
                         <input type="number" name="accrued" step="0.01" min="0" value="${entry.accrued}" required>
                     </div>
                     <div class="form-group">
@@ -110,12 +110,16 @@ export class DTConfig extends FormApplication<any> {
 							if (name === '') throw new Error(`Please enter a name`);
 
 							const id = (data.get('id') as string) || this.parseId(name, entry.id);
-							if (this.preview.levels.find((e) => e.id === id && e !== oldEntry)) throw new Error(`Duplicate id`);
+							if (this.preview.levels.find((e) => e.id === id && e !== oldEntry))
+								throw new Error(`Duplicate id`);
 							if (id === 'NONE') throw new Error(`"NONE" is a reserved id`);
 
 							const accrued = +(data.get('accrued') as string);
-							const sameValue = this.preview.levels.find((e) => e.accrued === accrued && e.id !== entry.id);
-							if (sameValue) throw new Error('There is another membership with the exact same accrued value');
+							const sameValue = this.preview.levels.find(
+								(e) => e.accrued === accrued && e.id !== entry.id,
+							);
+							if (sameValue)
+								throw new Error('There is another membership with the exact same accrued value');
 							if (form.checkValidity() === false) throw new Error('Invalid form');
 
 							entry.id = id;
@@ -133,7 +137,7 @@ export class DTConfig extends FormApplication<any> {
 					},
 				},
 			},
-			{ height: 'auto' }
+			{ height: 'auto' },
 		);
 	}
 	async modifyEntry(el: HTMLElement) {
@@ -161,14 +165,18 @@ export class DTConfig extends FormApplication<any> {
 			delete: this.deleteEntry,
 		};
 		html.find('[data-action]').each((idx, el) =>
-			el.addEventListener('click', () => actions[el.dataset.action!].call(this, el))
+			el.addEventListener('click', () => actions[el.dataset.action!].call(this, el)),
 		);
 		html.find('select[name="base-currency"]').on('change', (ev) => {
-			this.preview.base_currency = (ev.currentTarget as HTMLSelectElement).value;
+			this.preview.baseCurrency = (ev.currentTarget as HTMLSelectElement).value;
 			this.render();
 		});
 		html.find('select[name="gm-membership"]').on('change', (ev) => {
 			this.preview.gmLevel = (ev.currentTarget as HTMLSelectElement).value;
+			this.render();
+		});
+		html.find('input[name="gm-exclude"]').on('change', (ev) => {
+			this.preview.gmExclude = (ev.currentTarget as HTMLInputElement).checked;
 			this.render();
 		});
 		html.find('input[name=period]').on('change', (ev) => {
@@ -197,17 +205,23 @@ export class DTConfig extends FormApplication<any> {
 
 	//@ts-ignore
 	override async getData() {
-		const memberships = Object.values(this.members).map((data) => calcMembershipLevel(data, this.rates, this.preview));
+		const memberships = Object.values(this.members).map((data) =>
+			calcMembershipLevel(data, this.rates, this.preview),
+		);
 
 		return {
 			currency: CURRENCIES,
-			selected: this.preview.base_currency,
+			selected: this.preview.baseCurrency,
 			period: this.preview.period,
 			gmLevel: this.preview.gmLevel,
+			gmExclude: this.preview.gmExclude,
 			table: this.preview.levels.map((entry) => ({
 				...entry,
 				base: entry.accrued === 0,
-				accrued: entry.accrued.toLocaleString('en-US', { style: 'currency', currency: this.preview.base_currency }),
+				accrued: entry.accrued.toLocaleString('en-US', {
+					style: 'currency',
+					currency: this.preview.baseCurrency,
+				}),
 				members: memberships.filter((m) => m.membership === entry).length,
 			})),
 			registrationGiftPeriod: this.preview.registrationGiftPeriod,

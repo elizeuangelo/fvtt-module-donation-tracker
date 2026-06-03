@@ -23,17 +23,6 @@
     </div>
 
     <div class="form-group">
-        <label>Gamemaster Membership</label>
-        <select name="gm-membership">
-            <option value="">&lt;None&gt;</option>
-            {{#each table}}
-            <option value="{{id}}" {{#if (eq id ../gmLevel)}}selected{{/if}}>{{name}}</option>
-            {{/each}}
-        </select>
-        <p class="notes">This membership level is shared amongst all GMs.</p>
-    </div>
-
-    <div class="form-group">
         <label>Registration Gift</label>
         <div class="form-fields">
             <input
@@ -51,6 +40,23 @@
             </select>
         </div>
         <p class="notes">Free temporary membership as a welcome gift.</p>
+    </div>
+
+    <div class="form-group">
+        <label>Gamemaster Membership</label>
+        <select name="gm-membership">
+            <option value="">&lt;None&gt;</option>
+            {{#each table}}
+            <option value="{{id}}" {{#if (eq id ../gmLevel)}}selected{{/if}}>{{name}}</option>
+            {{/each}}
+        </select>
+        <p class="notes">This membership level is gifted to all GMs.</p>
+    </div>
+
+    <div class="form-group">
+        <label>Exclude Gamemasters</label>
+        <input type="checkbox" name="gm-exclude" {{#if (eq id ../gmExclude)}}checked{{/if}}>
+        <p class="notes">Gamemasters no longer updates the API and their donation status is no longer checked.</p>
     </div>
 
     <hr>

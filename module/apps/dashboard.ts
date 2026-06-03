@@ -1,9 +1,9 @@
-import { getTokenInformation } from '../api.js';
-import { MODULE_ID, PATH, getSetting, setSetting } from '../settings.js';
-import { CURRENCIES, DTConfig } from './config.js';
 import * as API from '../api.js';
+import { getTokenInformation } from '../api.js';
 import { calcMembershipLevel, getMembersData } from '../membership.js';
+import { MODULE_ID, PATH, getSetting, setSetting } from '../settings.js';
 import { parseCSV, parseTime, readFile, sleep } from '../utils.js';
+import { CURRENCIES, DTConfig } from './config.js';
 
 export class Dashboard extends Application {
 	static override get defaultOptions() {
@@ -80,7 +80,7 @@ export class Dashboard extends Application {
 					{
 						allowProtoMethodsByDefault: true,
 						allowProtoPropertiesByDefault: true,
-					}
+					},
 				),
 				default: 'ok',
 				close: () => null,
@@ -92,7 +92,7 @@ export class Dashboard extends Application {
 					},
 				},
 			},
-			{ width: 700, classes: ['dialog', 'donation-tracker'] }
+			{ width: 700, classes: ['dialog', 'donation-tracker'] },
 		).render(true);
 	}
 
@@ -172,10 +172,10 @@ export class Dashboard extends Application {
 			id: randomID(),
 			timestamp: Date.now(),
 			email: '',
-			currency: getSetting('membershipLevels').base_currency,
+			currency: getSetting('membershipLevels').baseCurrency,
 			amount: '1.00',
 			comment: '',
-		}
+		},
 	) {
 		return new Dialog({
 			title: `Donation: ${entry.id}`,
@@ -216,7 +216,7 @@ export class Dashboard extends Application {
 				{
 					allowProtoMethodsByDefault: true,
 					allowProtoPropertiesByDefault: true,
-				}
+				},
 			),
 			default: 'ok',
 			close: () => null,
@@ -265,7 +265,7 @@ export class Dashboard extends Application {
 								this.donations.manual[entryId].donations.push(entryData);
 							} else {
 								const realEntry = this.donations.manual[entryId].donations.find(
-									(e) => e.id === entry.id
+									(e) => e.id === entry.id,
 								)!;
 								if (
 									entry.timestamp === realEntry.timestamp &&
@@ -497,7 +497,7 @@ export class Dashboard extends Application {
 						'Message' in d ? `: ${d.Message}` : ''
 					}`,
 				}))
-				.sort((a, b) => b.timestamp - a.timestamp)
+				.sort((a, b) => b.timestamp - a.timestamp),
 		);
 		const include = await previewTable(additions);
 		if (!include || include.length === 0) return;
@@ -559,7 +559,7 @@ export class Dashboard extends Application {
 			'import-kofi': this.importKofiCSV,
 		};
 		html.find('[data-action]').each((idx, el) =>
-			el.addEventListener('click', () => actions[el.dataset.action!].call(this, el))
+			el.addEventListener('click', () => actions[el.dataset.action!].call(this, el)),
 		);
 		this.addFilterPeriodsListeners(html);
 	}
@@ -585,11 +585,11 @@ export class Dashboard extends Application {
 					donatedAll: membership.donatedAll,
 					donatedParsed: membership.donated.toLocaleString('en-US', {
 						style: 'currency',
-						currency: membershipLevels.base_currency,
+						currency: membershipLevels.baseCurrency,
 					}),
 					donatedAllParsed: membership.donatedAll.toLocaleString('en-US', {
 						style: 'currency',
-						currency: membershipLevels.base_currency,
+						currency: membershipLevels.baseCurrency,
 					}),
 					temporaryMembership: membership.temporary,
 				};
@@ -656,7 +656,7 @@ export class Dashboard extends Application {
 					.reduce((a, b) => a + +b.amount / this.rates.rates[b.currency], 0)
 					.toLocaleString('en-US', {
 						style: 'currency',
-						currency: membershipLevels.base_currency,
+						currency: membershipLevels.baseCurrency,
 					}),
 				donationsLength: donations.length,
 				donationsLastPeriod: donationsLastPeriod
@@ -664,7 +664,7 @@ export class Dashboard extends Application {
 					.reduce((a, b) => a + +b.amount / this.rates.rates[b.currency], 0)
 					.toLocaleString('en-US', {
 						style: 'currency',
-						currency: membershipLevels.base_currency,
+						currency: membershipLevels.baseCurrency,
 					}),
 				donationsLastPeriodLength: donationsLastPeriod.length,
 			},

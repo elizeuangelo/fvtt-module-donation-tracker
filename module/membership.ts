@@ -10,10 +10,11 @@ export interface MembershipEntry {
 }
 
 export interface Membership {
-	base_currency: string;
+	baseCurrency: string;
 	period: string;
 	levels: MembershipEntry[];
 	gmLevel?: string;
+	gmExclude?: boolean;
 	registrationGiftPeriod?: string;
 	registrationGiftLevel?: string;
 }
@@ -73,7 +74,7 @@ export function myMembershipLevelSync(myDonations: Awaited<ReturnType<typeof API
 	return calcMembershipLevel(
 		{
 			admin: Boolean(payload.name),
-			id: payload.id,
+			id: game.user.id,
 			name: payload.name ?? game.user.name!,
 			last_login: Date.now(),
 			email: myDonations.kofi?.email ?? myDonations.manual.email,
@@ -137,15 +138,27 @@ export function calcWelcomeGiftMembershipLevel(
  * @hidden
  */
 export function calcMembershipLevel(data: Member, rates: Rates, membershipLevels = getSetting('membershipLevels')) {
-	if (rates.base !== membershipLevels.base_currency) convertRates(rates, membershipLevels.base_currency);
+	if (rates.base !== membershipLevels.baseCurrency) convertRates(rates, membershipLevels.baseCurrency);
 
 	const period = parseTime(membershipLevels.period);
 	if (!period) throw new Error('Bad membership period');
-
 	const since = Date.now() - period;
+	const user = game.users.get(data.id);
 
-	let donated = 0,
-		donatedAll = 0;
+	let membershipValue = -1,
+		donated = 0,
+		donatedAll = 0,
+		temporary = false;
+
+	const upgradeMembership = (id: string | MembershipEntry | undefined) => {
+		if (id === undefined) return;
+		const newMembership =
+			typeof id === 'string'
+				? membershipLevels.levels.findIndex((m) => m.id === id)
+				: membershipLevels.levels.findIndex((m) => m === id);
+		if (newMembership <= membershipValue) return;
+		membershipValue = newMembership;
+	};
 
 	data.kofi.forEach((entry) => {
 		const value = +entry.amount / rates.rates[entry.currency];
@@ -161,48 +174,35 @@ export function calcMembershipLevel(data: Member, rates: Rates, membershipLevels
 		donated += value;
 	});
 
-	let membership = membershipLevels.levels.findLast((entry) => entry.accrued <= donated) ?? null;
-
 	if (data.admin) {
-		membership = membershipLevels.levels.at(-1) ?? null;
-	} else {
-		if (data.id && game.users.get(data.id)) {
-			const user = game.users.get(data.id);
-			const flag = user?.getFlag(MODULE_ID, 'special-membership') as { exp: number; membership: string };
+		upgradeMembership(membershipLevels.levels.at(-1));
+	}
+
+	if (user?.isGM && membershipLevels.gmLevel) {
+		upgradeMembership(membershipLevels.gmLevel);
+	}
+
+	if (!user?.isGM || !membershipLevels.gmExclude) {
+		upgradeMembership(membershipLevels.levels.findLast((entry) => entry.accrued <= donated));
+
+		if (user) {
+			const flag = user.getFlag(MODULE_ID, 'special-membership') as { exp: number; membership: string };
 			if (flag && flag.exp > since) {
-				const minimumMembership = membershipLevels.levels.find((m) => m.id === flag.membership);
-				if (minimumMembership) {
-					const minIdx = membershipLevels.levels.indexOf(minimumMembership);
-					const currentIdx = membership ? membershipLevels.levels.indexOf(membership) : -1;
-					if (minIdx > currentIdx) membership = minimumMembership;
-				}
+				upgradeMembership(flag.membership);
 			}
-			if (user && user.isGM && membershipLevels.gmLevel) {
-				const gmMembership = membershipLevels.levels.find((m) => m.id === membershipLevels.gmLevel);
-				if (gmMembership) {
-					if (!membership) membership = gmMembership;
-					else {
-						const minIdx = membershipLevels.levels.indexOf(gmMembership);
-						const currentIdx = membershipLevels.levels.indexOf(membership);
-						if (minIdx > currentIdx) membership = gmMembership;
-					}
-				}
+		}
+
+		const welcomeGiftMembershipLevel = calcWelcomeGiftMembershipLevel(data, membershipLevels);
+		if (membershipValue === -1 && welcomeGiftMembershipLevel > -1) {
+			const isBetter = welcomeGiftMembershipLevel > membershipValue;
+			if (isBetter) {
+				membershipValue = welcomeGiftMembershipLevel;
+				temporary = true;
 			}
 		}
 	}
 
-	const welcomeGiftMembershipLevel = calcWelcomeGiftMembershipLevel(data, membershipLevels);
-	let temporary = false;
-	if (membership === null && welcomeGiftMembershipLevel > -1) {
-		const isBetter =
-			welcomeGiftMembershipLevel > membershipLevels.levels.findIndex((entry) => entry.id === membership?.id);
-		if (isBetter) {
-			membership = membershipLevels.levels[welcomeGiftMembershipLevel];
-			temporary = true;
-		}
-	}
-
-	return { membership, donated, donatedAll, temporary };
+	return { membership: membershipLevels.levels[membershipValue] ?? null, donated, donatedAll, temporary };
 }
 
 interface CacheData {
@@ -254,10 +254,10 @@ export class MembershipAPI {
 		}
 		if (typeof user === 'string') {
 			const userId = user;
-			user = game.users.get(user);
-			if (user === undefined) {
+			if (!game.users.has(userId)) {
 				throw new Error(`Could not find user "${userId}"`);
 			}
+			user = game.users.get(user)!;
 		}
 		const timeDiff = Date.now() - (this.#last || 0);
 		if (timeDiff > this.#cache_time) this.refresh();
@@ -289,8 +289,8 @@ export class MembershipAPI {
 	}
 
 	constructor() {
-		this.refreshToken().then(async () => {
-			await this.ensuresRegistrationLog();
+		this.refreshToken().then(async (res) => {
+			if (res !== null) await this.ensuresRegistrationLog();
 			console.log('Membership API Ready');
 			Hooks.callAll('membershipReady', this);
 		});
@@ -395,6 +395,9 @@ export class MembershipAPI {
 	 */
 	async refreshToken(): Promise<string | null> {
 		if (this.devMode) return null;
+		if (game.user.isGM && this.membershipsInfo.gmExclude) {
+			return null;
+		}
 		const token = await API.refreshToken();
 		await this.refresh();
 		return token;

@@ -2,8 +2,10 @@
  * A reusable storage concept which blends the functionality of an Array with the efficient key-based lookup of a Map.
  * This concept is reused throughout Foundry VTT where a collection of uniquely identified elements is required.
  */
-declare interface Collection<V>
-	extends Omit<Map<string, V>, 'forEach' | 'delete' | 'set' | SymbolConstructor['iterator']> {
+declare interface Collection<V> extends Omit<
+	Map<string, V>,
+	'forEach' | 'delete' | 'set' | SymbolConstructor['iterator']
+> {
 	set(key: string, value: V): this;
 
 	delete(key: string): boolean;
@@ -63,8 +65,8 @@ declare interface Collection<V>
 	 * c.get("d"); // null
 	 * c.get("d", {strict: true}); // throws Error
 	 */
-	get<T extends V = V>(key: Maybe<string>, { strict }?: { strict: true }): T;
-	get<T extends V = V>(key: string, { strict }?: CollectionGetOptions): T | undefined;
+	get<T extends V = V>(key: Maybe<string>, { strict }: { strict: true }): T;
+	get<T extends V = V>(key: Maybe<string>, { strict }?: CollectionGetOptions): T | undefined;
 
 	/**
 	 * Get an entry from the Collection by name.
@@ -119,4 +121,3 @@ declare var Collection: CollectionConstructor;
 interface CollectionGetOptions {
 	strict?: boolean;
 }
-

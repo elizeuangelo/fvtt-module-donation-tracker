@@ -35,7 +35,7 @@ const settings = {
 		config: false,
 		type: Object,
 		default: {
-			base_currency: 'USD',
+			baseCurrency: 'USD',
 			period: '30 days',
 			levels: [],
 		} as Membership,
