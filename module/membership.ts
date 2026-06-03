@@ -1,6 +1,6 @@
+import * as API from './api.js';
 import { MODULE_ID, getSetting } from './settings.js';
 import { parseTime } from './utils.js';
-import * as API from './api.js';
 
 export interface MembershipEntry {
 	id: string;
@@ -82,7 +82,7 @@ export function myMembershipLevelSync(myDonations: Awaited<ReturnType<typeof API
 			registration: game.user.getFlag(MODULE_ID, 'registeredAt') as number | undefined,
 		},
 		rates,
-		membershipLevels
+		membershipLevels,
 	);
 }
 
@@ -92,7 +92,7 @@ export function myMembershipLevelSync(myDonations: Awaited<ReturnType<typeof API
 export function getMembersData(
 	users: Awaited<ReturnType<typeof API.getUsers>>,
 	donations: Awaited<ReturnType<typeof API.allDonations>>,
-	key: 'id' | 'email' = 'email'
+	key: 'id' | 'email' = 'email',
 ) {
 	const members: Record<string, Member> = {};
 	users.forEach(
@@ -108,7 +108,7 @@ export function getMembersData(
 				registration: u.id
 					? (game.users.get(u.id)?.getFlag(MODULE_ID, 'registeredAt') as number | undefined)
 					: undefined,
-			})
+			}),
 	);
 	return members;
 }
@@ -118,7 +118,7 @@ export function getMembersData(
  */
 export function calcWelcomeGiftMembershipLevel(
 	data: Member,
-	membershipLevels = getSetting('membershipLevels')
+	membershipLevels = getSetting('membershipLevels'),
 ): number {
 	if (!membershipLevels.registrationGiftPeriod) return -1;
 	const period = parseTime(membershipLevels.registrationGiftPeriod);
@@ -252,10 +252,26 @@ export class MembershipAPI {
 			this.cache.rates = null;
 			return;
 		}
+		if (typeof user === 'string') {
+			const userId = user;
+			user = game.users.get(user);
+			if (user === undefined) {
+				throw new Error(`Could not find user "${userId}"`);
+			}
+		}
 		const timeDiff = Date.now() - (this.#last || 0);
 		if (timeDiff > this.#cache_time) this.refresh();
-		const userId = typeof user === 'string' ? user : user.id;
-		const member = this.cache.members![userId];
+		const member =
+			this.cache.members![user.id] ??
+			({
+				id: user.id,
+				name: user.name,
+				admin: false,
+				email: '',
+				kofi: [],
+				manual: [],
+				last_login: 0,
+			} as Member);
 		return calcMembershipLevel(member, this.cache.rates!, this.membershipsInfo);
 	}
 
