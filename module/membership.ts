@@ -288,11 +288,19 @@ export class MembershipAPI {
 		}
 	}
 
+	/**
+	 * Represents whether the membershipReady hook has already fired or not
+	 * Common use before using this module is checking against game.membership?.ready !== true,
+	 * and waiting for the "membershipReady" hook in case its not ready
+	 */
+	ready = false;
+
 	constructor() {
 		this.refreshToken().then(async (res) => {
 			if (res !== null) await this.ensuresRegistrationLog();
 			console.log('Membership API Ready');
 			Hooks.callAll('membershipReady', this);
+			this.ready = true;
 		});
 	}
 
