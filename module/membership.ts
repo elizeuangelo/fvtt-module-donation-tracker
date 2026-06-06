@@ -65,38 +65,6 @@ function convertRates(data: Rates, to: string) {
 /**
  * @hidden
  */
-export async function myMembershipLevel() {
-	const payload = API.getTokenInformation();
-	if (!payload) return null;
-	const [myDonations, rates] = await Promise.all([API.myDonations(), API.rates()]);
-	return myMembershipLevelSync(myDonations, rates);
-}
-
-/**
- * @hidden
- */
-export function myMembershipLevelSync(myDonations: Awaited<ReturnType<typeof API.myDonations>>, rates: Rates) {
-	const payload = API.getTokenInformation();
-	if (!payload) return null;
-	const membershipLevels = getSetting('membershipLevels');
-
-	return calcMembershipLevel(
-		{
-			id: game.user.id,
-			last_login: Date.now(),
-			email: myDonations?.kofi.email ?? myDonations?.manual.email,
-			kofi: myDonations?.kofi.donations ?? [],
-			manual: myDonations?.manual.donations ?? [],
-			registration: game.user.getFlag(MODULE_ID, 'registeredAt') as number | undefined,
-		},
-		rates,
-		membershipLevels,
-	);
-}
-
-/**
- * @hidden
- */
 export function getMembersData(
 	donations: Awaited<ReturnType<typeof API.allDonations>>,
 	usersCache: Awaited<ReturnType<typeof API.getUsers>> | null,
@@ -238,16 +206,11 @@ export class MembershipAPI {
 	 * If the time difference since the last refresh is greater than the cache time, the data is refreshed.
 	 * @returns The membership level data.
 	 */
-	#getData(): ReturnType<typeof myMembershipLevelSync> | undefined {
-		if (!API.isValid()) {
-			this.cache.myDonations = null;
-		}
-		const timeDiff = Date.now() - (this.#last || 0);
-		if (timeDiff > this.#cache_time) this.refresh();
-		return myMembershipLevelSync(this.cache.myDonations!, this.cache.rates!);
+	#getData(): ReturnType<typeof calcMembershipLevel> {
+		return this.#getUserData(game.user);
 	}
 
-	#getUserData(user: string | User): ReturnType<typeof calcMembershipLevel> | undefined {
+	#getUserData(user: string | User): ReturnType<typeof calcMembershipLevel> {
 		if (typeof user === 'string') {
 			const userId = user;
 			if (!game.users.has(userId)) {

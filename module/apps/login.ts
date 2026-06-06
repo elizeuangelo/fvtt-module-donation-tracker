@@ -83,9 +83,11 @@ export class LoginApp extends Application {
 			el.addEventListener('click', () => actions[el.dataset.action!].call(this, el)),
 		);
 		const gmCanLogin = !getSetting('membershipLevels').gmExclude;
-		if (!API.isValid()) {
-			if (gmCanLogin || !game.user.isGM) return;
+		if (game.user.isGM && !gmCanLogin) {
+			setTimeout(() => this.activateTab('gamemaster'), 0);
+			return;
 		}
+		if (!API.isValid()) return;
 		setTimeout(() => this.activateTab('finish'), 0);
 	}
 

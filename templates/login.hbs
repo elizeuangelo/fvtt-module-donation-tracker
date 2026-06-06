@@ -45,12 +45,10 @@
 	<!-- Confirmation Tab -->
 	<div class="tab" data-group="primary" data-tab="finish">
 		<p>You have registered an account for:</p>
-		{{#if email}}
-			<div class="form-group">
-				<label>Email</label>
-				<input id="account-email" type="text" value="{{email}}" disabled />
-			</div>
-		{{/if}}
+		<div class="form-group">
+			<label>Email</label>
+			<input id="account-email" type="text" value="{{email}}" disabled />
+		</div>
 		<div class="form-group">
 			<label>Membership</label>
 			<input id="account-membership" type="text" value="{{membership}}" disabled />
@@ -71,6 +69,14 @@
 		<div class="footer-buttons">
 			<button type="button" data-action="logout"><i class="far fa-undo"></i> Log out</button>
 			<button type="button" data-action="close"><i class="far fa-close"></i> Close</button>
+		</div>
+	</div>
+
+	<!-- Confirmation Tab -->
+	<div class="tab" data-group="primary" data-tab="gamemaster">
+		<div class="form-group">
+			<label>Membership</label>
+			<input id="account-membership" type="text" value="{{membership}}" disabled />
 		</div>
 	</div>
 </form>
