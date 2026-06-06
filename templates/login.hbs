@@ -45,14 +45,12 @@
 	<!-- Confirmation Tab -->
 	<div class="tab" data-group="primary" data-tab="finish">
 		<p>You have registered an account for:</p>
-		<div class="form-group">
-			<label>Email</label>
-			<input id="account-email" type="text" value="{{email}}" disabled />
-		</div>
-		<div class="form-group">
-			<label>User</label>
-			<input id="account-name" type="text" value="{{name}}" disabled />
-		</div>
+		{{#if email}}
+			<div class="form-group">
+				<label>Email</label>
+				<input id="account-email" type="text" value="{{email}}" disabled />
+			</div>
+		{/if}
 		<div class="form-group">
 			<label>Membership</label>
 			<input id="account-membership" type="text" value="{{membership}}" disabled />

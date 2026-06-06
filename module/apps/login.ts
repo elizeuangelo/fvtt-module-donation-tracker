@@ -1,6 +1,5 @@
-import { PATH, getSetting, setSetting } from '../settings.js';
-import { myMembershipLevel } from '../membership.js';
 import * as API from '../api.js';
+import { PATH, getSetting, setSetting } from '../settings.js';
 
 export class LoginApp extends Application {
 	static override get defaultOptions() {
@@ -81,17 +80,18 @@ export class LoginApp extends Application {
 			close: this.close,
 		};
 		html.find('[data-action]').each((idx, el) =>
-			el.addEventListener('click', () => actions[el.dataset.action!].call(this, el))
+			el.addEventListener('click', () => actions[el.dataset.action!].call(this, el)),
 		);
-		if (!API.isValid()) return;
+		const gmCanLogin = !getSetting('membershipLevels').gmExclude;
+		if (!API.isValid()) {
+			if (gmCanLogin || !game.user.isGM) return;
+		}
 		setTimeout(() => this.activateTab('finish'), 0);
 	}
 
 	override async getData() {
 		const info = API.getTokenInformation();
-		const name = info?.name ?? info?.id ? game.users.get(info.id!)?.name ?? '<unknown>' : null;
 		return {
-			name,
 			membership: game.membership.membershipTitle ?? 'None',
 			email: info?.email ?? '',
 			expired: info?.email && !API.isValid(),

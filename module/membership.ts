@@ -397,6 +397,7 @@ export class MembershipAPI {
 	 */
 	async refreshToken(): Promise<string | null> {
 		if (this.devMode) return null;
+		if (!API.isValid()) return null;
 		if (game.user.isGM && this.membershipsInfo.gmExclude) {
 			return null;
 		}
