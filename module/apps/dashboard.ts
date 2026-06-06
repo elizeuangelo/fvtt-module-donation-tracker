@@ -1,6 +1,6 @@
 import * as API from '../api.js';
 import { getTokenInformation } from '../api.js';
-import { AdminMember, calcMembershipLevel, getMembersData } from '../membership.js';
+import { calcMembershipLevel, getMembersData, Member } from '../membership.js';
 import { getSetting, MODULE_ID, PATH, setSetting } from '../settings.js';
 import { parseCSV, parseTime, readFile, sleep } from '../utils.js';
 import { CURRENCIES, DTConfig } from './config.js';
@@ -23,7 +23,7 @@ export class Dashboard extends Application {
 	}
 
 	users!: Awaited<ReturnType<typeof API.getUsers>>;
-	members!: Record<string, AdminMember>;
+	members!: Record<string, Member>;
 	donations!: API.AdminDonations;
 	rates!: Awaited<ReturnType<typeof API.rates>>;
 
@@ -569,7 +569,7 @@ export class Dashboard extends Application {
 	override async getData() {
 		if (!this.members || !this.rates) await this.refreshData();
 		const membershipLevels = getSetting('membershipLevels');
-		this.members = getMembersData(this.donations) as Record<string, AdminMember>;
+		this.members = getMembersData(this.donations, this.users);
 
 		const members = Object.values(this.members)
 			.map((data) => {
@@ -577,7 +577,7 @@ export class Dashboard extends Application {
 				return {
 					id: data.id,
 					name: data.user?.name ?? '<unknown>',
-					last_login: new Date(data.last_login).toISOString().slice(0, 16),
+					last_login: data.last_login ? new Date(data.last_login).toISOString().slice(0, 16) : '-',
 					last_login_value: data.last_login,
 					email: data.email,
 					membership: membership.membership?.name ?? '<None>',
@@ -651,7 +651,7 @@ export class Dashboard extends Application {
 			period: membershipLevels.period,
 			summary: {
 				membersTotal: members.length,
-				membersLastPeriod: members.filter((m) => m.last_login_value > since).length,
+				membersLastPeriod: members.filter((m) => (m.last_login_value ?? 0) > since).length,
 				membersDonatedLastPeriod: members.filter((m) => m.donated > 0).length,
 				donationsTotal: donations
 					.filter((d) => d.amount_value > 0 && d.currency in this.rates.rates)

@@ -37,16 +37,6 @@ export interface Member {
 	registration?: number;
 }
 
-export interface AdminMember {
-	id: string;
-	user?: User;
-	kofi: API.KofiUserData['donations'];
-	manual: API.ManualUserData['donations'];
-	email: string;
-	last_login: number;
-	registration?: number;
-}
-
 /**
  * @hidden
  */
@@ -99,7 +89,7 @@ export function myMembershipLevelSync(myDonations: Awaited<ReturnType<typeof API
  */
 export function getMembersData(
 	donations: Awaited<ReturnType<typeof API.allDonations>>,
-	usersCache?: Awaited<ReturnType<typeof API.getUsers>>,
+	usersCache: Awaited<ReturnType<typeof API.getUsers>> | null,
 ) {
 	const members: Record<string, Member> = {};
 	const allDonationKeys = [...Object.keys(donations.kofi), ...Object.keys(donations.manual)];
@@ -389,7 +379,7 @@ export class MembershipAPI {
 		[this.cache.myDonations, this.cache.rates] = await Promise.all([API.myDonations(), API.rates()]);
 		this.cache.users = this.isAdmin ? await API.getUsers() : null;
 		this.cache.donations = await API.allDonations();
-		this.cache.members = getMembersData(this.cache.donations);
+		this.cache.members = getMembersData(this.cache.donations, this.cache.users);
 		this.#last = Date.now();
 	}
 
