@@ -569,7 +569,7 @@ export class Dashboard extends Application {
 	override async getData() {
 		if (!this.members || !this.rates) await this.refreshData();
 		const membershipLevels = getSetting('membershipLevels');
-		this.members = getMembersData(this.donations) as Record<string, AdminMember>;
+		this.members = getMembersData(this.donations, this.users) as Record<string, AdminMember>;
 
 		const members = Object.values(this.members)
 			.map((data) => {
