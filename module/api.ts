@@ -169,6 +169,7 @@ export async function refreshToken() {
 }
 
 export async function myDonations() {
+	if (!isValid()) return null;
 	const manual = (await (await fetch(getRoute('/manual/me'), { headers: getHeaders() })).json()) as ManualUserData;
 	const kofi = (await (await fetch(getRoute('/kofi/me'), { headers: getHeaders() })).json()) as KofiUserData;
 	return { manual, kofi };

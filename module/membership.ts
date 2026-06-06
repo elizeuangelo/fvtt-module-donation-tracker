@@ -84,9 +84,9 @@ export function myMembershipLevelSync(myDonations: Awaited<ReturnType<typeof API
 		{
 			id: game.user.id,
 			last_login: Date.now(),
-			email: myDonations.kofi?.email ?? myDonations.manual.email,
-			kofi: myDonations.kofi.donations,
-			manual: myDonations.manual.donations,
+			email: myDonations?.kofi.email ?? myDonations?.manual.email,
+			kofi: myDonations?.kofi.donations ?? [],
+			manual: myDonations?.manual.donations ?? [],
 			registration: game.user.getFlag(MODULE_ID, 'registeredAt') as number | undefined,
 		},
 		rates,
@@ -241,8 +241,6 @@ export class MembershipAPI {
 	#getData(): ReturnType<typeof myMembershipLevelSync> | undefined {
 		if (!API.isValid()) {
 			this.cache.myDonations = null;
-			this.cache.rates = null;
-			return;
 		}
 		const timeDiff = Date.now() - (this.#last || 0);
 		if (timeDiff > this.#cache_time) this.refresh();
@@ -296,6 +294,7 @@ export class MembershipAPI {
 	constructor() {
 		this.refreshToken().then(async (res) => {
 			if (res !== null) await this.ensuresRegistrationLog();
+			await this.refresh();
 			console.log('Membership API Ready');
 			Hooks.callAll('membershipReady', this);
 			this.ready = true;
@@ -385,7 +384,6 @@ export class MembershipAPI {
 	 */
 	async refresh(): Promise<void> {
 		if (this.devMode) return;
-		if (!API.isValid()) return;
 		[this.cache.myDonations, this.cache.rates] = await Promise.all([API.myDonations(), API.rates()]);
 		this.cache.users = this.isAdmin ? await API.getUsers() : null;
 		this.cache.donations = await API.allDonations();
@@ -402,9 +400,7 @@ export class MembershipAPI {
 		if (game.user.isGM && this.membershipsInfo.gmExclude) {
 			return null;
 		}
-		const token = await API.refreshToken();
-		await this.refresh();
-		return token;
+		return API.refreshToken();
 	}
 
 	/**
