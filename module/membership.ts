@@ -27,14 +27,23 @@ export interface Rates {
 	rates: Record<string, number>;
 }
 
-interface Member {
-	id?: string;
-	admin: boolean;
-	name: string;
+export interface Member {
+	id: string;
+	user?: User;
+	kofi: API.KofiUserData['donations'] | API.SafeOperation[];
+	manual: API.ManualUserData['donations'] | API.SafeOperation[];
+	email?: string;
+	last_login?: number;
+	registration?: number;
+}
+
+export interface AdminMember {
+	id: string;
+	user?: User;
+	kofi: API.KofiUserData['donations'];
+	manual: API.ManualUserData['donations'];
 	email: string;
 	last_login: number;
-	kofi: API.KofiUserData['donations'];
-	manual: API.ManualData['donations'];
 	registration?: number;
 }
 
@@ -73,9 +82,7 @@ export function myMembershipLevelSync(myDonations: Awaited<ReturnType<typeof API
 
 	return calcMembershipLevel(
 		{
-			admin: Boolean(payload.name),
 			id: game.user.id,
-			name: payload.name ?? game.user.name!,
 			last_login: Date.now(),
 			email: myDonations.kofi?.email ?? myDonations.manual.email,
 			kofi: myDonations.kofi.donations,
@@ -91,26 +98,27 @@ export function myMembershipLevelSync(myDonations: Awaited<ReturnType<typeof API
  * @hidden
  */
 export function getMembersData(
-	users: Awaited<ReturnType<typeof API.getUsers>>,
 	donations: Awaited<ReturnType<typeof API.allDonations>>,
-	key: 'id' | 'email' = 'email',
+	usersCache?: Awaited<ReturnType<typeof API.getUsers>>,
 ) {
 	const members: Record<string, Member> = {};
-	users.forEach(
-		(u) =>
-			(members[u[key]] = {
-				id: u.id,
-				admin: Boolean(u.name),
-				email: u.email,
-				name: u.name ?? game.users.get(u.id!)?.name ?? '<unknown>',
-				last_login: u.last_login,
-				kofi: donations.kofi[u.email]?.donations ?? [],
-				manual: donations.manual[u.email]?.donations ?? [],
-				registration: u.id
-					? (game.users.get(u.id)?.getFlag(MODULE_ID, 'registeredAt') as number | undefined)
-					: undefined,
-			}),
-	);
+	const allDonationKeys = [...Object.keys(donations.kofi), ...Object.keys(donations.manual)];
+	const users = new Set(allDonationKeys);
+	users.forEach((userId) => {
+		const user = game.users.get(userId);
+		const userCache = usersCache?.find((u) => u.id === userId);
+		const kofi: API.SafeOperation[] | API.KofiOperation[] = donations.kofi[userId]?.donations ?? [];
+		const manual: API.SafeOperation[] | API.ManualOperation[] = donations.manual[userId]?.donations ?? [];
+		members[userId] = {
+			id: userId,
+			user,
+			email: userCache?.email,
+			last_login: userCache?.last_login,
+			registration: user?.id ? (user.getFlag(MODULE_ID, 'registeredAt') as number | undefined) : undefined,
+			kofi,
+			manual,
+		};
+	});
 	return members;
 }
 
@@ -173,10 +181,6 @@ export function calcMembershipLevel(data: Member, rates: Rates, membershipLevels
 		if (entry.timestamp < since) return;
 		donated += value;
 	});
-
-	if (data.admin) {
-		upgradeMembership(membershipLevels.levels.at(-1));
-	}
 
 	if (user?.isGM && membershipLevels.gmLevel) {
 		upgradeMembership(membershipLevels.gmLevel);
@@ -246,12 +250,6 @@ export class MembershipAPI {
 	}
 
 	#getUserData(user: string | User): ReturnType<typeof calcMembershipLevel> | undefined {
-		if (!this.isAdmin) {
-			this.cache.donations = null;
-			this.cache.users = null;
-			this.cache.rates = null;
-			return;
-		}
 		if (typeof user === 'string') {
 			const userId = user;
 			if (!game.users.has(userId)) {
@@ -262,7 +260,7 @@ export class MembershipAPI {
 		const timeDiff = Date.now() - (this.#last || 0);
 		if (timeDiff > this.#cache_time) this.refresh();
 		const member =
-			this.cache.members![user.id] ??
+			this.cache.members?.[user.id] ??
 			({
 				id: user.id,
 				name: user.name,
@@ -389,11 +387,9 @@ export class MembershipAPI {
 		if (this.devMode) return;
 		if (!API.isValid()) return;
 		[this.cache.myDonations, this.cache.rates] = await Promise.all([API.myDonations(), API.rates()]);
-		if (this.isAdmin) {
-			this.cache.users = await API.getUsers();
-			this.cache.donations = await API.allDonations();
-			this.cache.members = getMembersData(this.cache.users, this.cache.donations, 'id');
-		}
+		this.cache.users = this.isAdmin ? await API.getUsers() : null;
+		this.cache.donations = await API.allDonations();
+		this.cache.members = getMembersData(this.cache.donations);
 		this.#last = Date.now();
 	}
 
@@ -417,7 +413,6 @@ export class MembershipAPI {
 	 */
 	hasPermission(key: string | number): boolean {
 		if (typeof key === 'string') key = this.RANKS[key] ?? -1;
-		if (this.isAdmin) return true;
 		const myLevel = this.membershipLevel;
 		return myLevel >= key;
 	}
@@ -430,9 +425,6 @@ export class MembershipAPI {
 	 * @throws Error if the current user is not an admin
 	 */
 	userMembership(user: string | User): string | undefined {
-		if (!this.isAdmin) {
-			throw new Error('You need to be an admin to access other users membership');
-		}
 		return this.#getUserData(user)?.membership?.id;
 	}
 

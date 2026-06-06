@@ -47,6 +47,7 @@ export interface KofiOperation {
 }
 
 export interface KofiUserData {
+	id: string;
 	email: string;
 	membership: null | string;
 	donations: KofiOperation[];
@@ -63,9 +64,21 @@ export interface ManualOperation {
 	last_modified_by: string;
 }
 
-export interface ManualData {
+export interface ManualUserData {
+	id: string;
 	email: string;
 	donations: ManualOperation[];
+}
+
+export interface SafeUserData {
+	id: string;
+	donations: SafeOperation[];
+}
+
+export interface SafeOperation {
+	amount: string;
+	currency: string;
+	timestamp: number;
 }
 
 interface User {
@@ -73,6 +86,16 @@ interface User {
 	name?: string;
 	email: string;
 	last_login: number;
+}
+
+export interface UserDonations {
+	manual: Record<string, SafeUserData>;
+	kofi: Record<string, SafeUserData>;
+}
+
+export interface AdminDonations {
+	manual: Record<string, ManualUserData>;
+	kofi: Record<string, KofiUserData>;
 }
 
 function getRoute(route: string) {
@@ -99,7 +122,7 @@ export function getTokenInformation() {
 
 export function getEmail() {
 	const payload = getTokenPayload();
-	return isValid() ? payload?.email ?? null : null;
+	return isValid() ? (payload?.email ?? null) : null;
 }
 
 export function isValid() {
@@ -146,7 +169,7 @@ export async function refreshToken() {
 }
 
 export async function myDonations() {
-	const manual = (await (await fetch(getRoute('/manual/me'), { headers: getHeaders() })).json()) as ManualData;
+	const manual = (await (await fetch(getRoute('/manual/me'), { headers: getHeaders() })).json()) as ManualUserData;
 	const kofi = (await (await fetch(getRoute('/kofi/me'), { headers: getHeaders() })).json()) as KofiUserData;
 	return { manual, kofi };
 }
@@ -164,7 +187,7 @@ export function isAdmin() {
 
 export function permissions() {
 	const payload = getTokenPayload();
-	return isValid() ? payload?.perms ?? null : null;
+	return isValid() ? (payload?.perms ?? null) : null;
 }
 
 export function checkPermission(perm: Permissions) {
@@ -174,15 +197,17 @@ export function checkPermission(perm: Permissions) {
 }
 
 export async function allDonations() {
-	const manual = (await (await fetch(getRoute('/manual/all'), { headers: getHeaders() })).json()) as Record<
-		string,
-		ManualData
-	>;
-	const kofi = (await (await fetch(getRoute('/kofi/all'), { headers: getHeaders() })).json()) as Record<
-		string,
-		KofiUserData
-	>;
-	return { manual, kofi };
+	const manualArr = (await (
+		await fetch(getRoute('/manual/all'), { headers: getHeaders() })
+	).json()) as ManualUserData[];
+	const kofiArr = (await (await fetch(getRoute('/kofi/all'), { headers: getHeaders() })).json()) as KofiUserData[];
+
+	const arrayToRecord = <T extends { id: string }>(arr: T[]) =>
+		arr
+			.map((item) => [item.id, item] as const)
+			.reduce((acc, [id, data]) => ({ ...acc, [id]: data }), {} as Record<string, T>);
+
+	return { manual: arrayToRecord(manualArr), kofi: arrayToRecord(kofiArr) } as AdminDonations | UserDonations;
 }
 
 export async function getUsers() {
@@ -206,10 +231,6 @@ export async function serverUpdateToken(text: string) {
 
 export async function serverConfig(text: string) {
 	return fetch(getRoute('/config'), { method: 'POST', headers: getHeaders(), body: text });
-}
-
-export async function serverCheck() {
-	return await (await fetch(getRoute('/check'))).text();
 }
 
 export async function serverRestart() {
