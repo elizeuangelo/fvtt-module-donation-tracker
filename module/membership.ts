@@ -113,8 +113,12 @@ export function calcWelcomeGiftMembershipLevel(
 /**
  * @hidden
  */
-export function calcMembershipLevel(data: Member, rates: Rates, membershipLevels = getSetting('membershipLevels')) {
-	if (rates.base !== membershipLevels.baseCurrency) convertRates(rates, membershipLevels.baseCurrency);
+export function calcMembershipLevel(
+	data: Member,
+	rates: Rates | null,
+	membershipLevels = getSetting('membershipLevels'),
+) {
+	if (rates && rates.base !== membershipLevels.baseCurrency) convertRates(rates, membershipLevels.baseCurrency);
 
 	const period = parseTime(membershipLevels.period);
 	if (!period) throw new Error('Bad membership period');
@@ -136,19 +140,21 @@ export function calcMembershipLevel(data: Member, rates: Rates, membershipLevels
 		membershipValue = newMembership;
 	};
 
-	data.kofi.forEach((entry) => {
-		const value = +entry.amount / rates.rates[entry.currency];
-		donatedAll += value;
-		if (entry.timestamp < since) return;
-		donated += value;
-	});
+	if (rates) {
+		data.kofi.forEach((entry) => {
+			const value = +entry.amount / rates.rates[entry.currency];
+			donatedAll += value;
+			if (entry.timestamp < since) return;
+			donated += value;
+		});
 
-	data.manual.forEach((entry) => {
-		const value = +entry.amount / rates.rates[entry.currency];
-		donatedAll += value;
-		if (entry.timestamp < since) return;
-		donated += value;
-	});
+		data.manual.forEach((entry) => {
+			const value = +entry.amount / rates.rates[entry.currency];
+			donatedAll += value;
+			if (entry.timestamp < since) return;
+			donated += value;
+		});
+	}
 
 	if (user?.isGM && membershipLevels.gmLevel) {
 		upgradeMembership(membershipLevels.gmLevel);
@@ -224,14 +230,12 @@ export class MembershipAPI {
 			this.cache.members?.[user.id] ??
 			({
 				id: user.id,
-				name: user.name,
-				admin: false,
 				email: '',
 				kofi: [],
 				manual: [],
 				last_login: 0,
-			} as Member);
-		return calcMembershipLevel(member, this.cache.rates!, this.membershipsInfo);
+			} satisfies Member);
+		return calcMembershipLevel(member, this.cache.rates, this.membershipsInfo);
 	}
 
 	/**
