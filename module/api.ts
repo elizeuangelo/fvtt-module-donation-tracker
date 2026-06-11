@@ -203,10 +203,20 @@ export async function allDonations() {
 	).json()) as ManualUserData[];
 	const kofiArr = (await (await fetch(getRoute('/kofi/all'), { headers: getHeaders() })).json()) as KofiUserData[];
 
-	const arrayToRecord = <T extends { id: string }>(arr: T[]) =>
+	const arrayToRecord = <T extends { id: string; donations: SafeOperation[] }>(arr: T[]) =>
 		arr
 			.map((item) => [item.id, item] as const)
-			.reduce((acc, [id, data]) => ({ ...acc, [id]: data }), {} as Record<string, T>);
+			.reduce(
+				(acc, [id, data]) => {
+					if (acc[id]) {
+						acc[id].donations.push(...data.donations);
+					} else {
+						acc[id] = data;
+					}
+					return acc;
+				},
+				{} as Record<string, T>,
+			);
 
 	return { manual: arrayToRecord(manualArr), kofi: arrayToRecord(kofiArr) } as AdminDonations | UserDonations;
 }

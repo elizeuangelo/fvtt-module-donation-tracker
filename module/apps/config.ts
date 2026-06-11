@@ -21,7 +21,7 @@ export const CURRENCIES = [
 
 export class DTConfig extends FormApplication<any> {
 	static override get defaultOptions() {
-		return mergeObject(super.defaultOptions, {
+		return foundry.utils.mergeObject(super.defaultOptions, {
 			id: 'dt-config',
 			title: 'Membership Configuration',
 			classes: ['sheet', 'donation-tracker'],

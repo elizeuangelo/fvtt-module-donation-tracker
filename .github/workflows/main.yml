@@ -49,7 +49,7 @@ jobs:
                   download: https://github.com/${{ github.repository }}/releases/download/v${{ steps.get_version.outputs.VERSION_NUMBER }}/module.zip
 
             - name: Zip files
-              run: zip -r module * -x ".github/*" "assets/*" "*.ts" "releases.md" "README.md" "types/*" "package-lock.json" "package.json" "tsconfig.json" "node_modules/*"
+              run: zip -r module * -x ".github/*" "assets/*" "node_modules/*" "types/*" "*.ts" "releases.md" "README.md"  "package-lock.json" "package.json" "tsconfig.json" "typedoc.json"
 
             # Create a release for this specific version
             - name: Create Release

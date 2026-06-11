@@ -68,16 +68,20 @@ function convertRates(data: Rates, to: string) {
 export function getMembersData(
 	donations: Awaited<ReturnType<typeof API.allDonations>>,
 	usersCache: Awaited<ReturnType<typeof API.getUsers>> | null,
+	key: 'id' | 'email' = 'id',
 ) {
+	if (key === 'email' && !usersCache?.[0].email) {
+		throw new Error('Parsing member data using invalid email key');
+	}
 	const members: Record<string, Member> = {};
-	const allDonationKeys = [...Object.keys(donations.kofi), ...Object.keys(donations.manual)];
-	const users = new Set(allDonationKeys);
-	users.forEach((userId) => {
+	const users = usersCache ?? game.users.filter((u) => Boolean(u.getFlag(MODULE_ID, 'registeredAt')));
+	users.forEach(({ id: userId }) => {
 		const user = game.users.get(userId);
 		const userCache = usersCache?.find((u) => u.id === userId);
 		const kofi: API.SafeOperation[] | API.KofiOperation[] = donations.kofi[userId]?.donations ?? [];
 		const manual: API.SafeOperation[] | API.ManualOperation[] = donations.manual[userId]?.donations ?? [];
-		members[userId] = {
+		const memberKey = key === 'email' ? userCache!.email : userId;
+		members[memberKey] = {
 			id: userId,
 			user,
 			email: userCache?.email,
@@ -161,7 +165,7 @@ export function calcMembershipLevel(
 	}
 
 	if (!user?.isGM || !membershipLevels.gmExclude) {
-		upgradeMembership(membershipLevels.levels.findLast((entry) => entry.accrued <= donated));
+		if (data.registration) upgradeMembership(membershipLevels.levels.findLast((entry) => entry.accrued <= donated));
 
 		if (user) {
 			const flag = user.getFlag(MODULE_ID, 'special-membership') as { exp: number; membership: string };

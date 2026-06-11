@@ -37,9 +37,9 @@ export class Dashboard extends Application {
 	}
 
 	viewMember(el: HTMLElement) {
-		const id = el.dataset.entry!;
+		const email = el.dataset.entry!;
 		const donations = (
-			[...this.members[id].kofi, ...this.members[id].manual] as (API.KofiOperation | API.ManualOperation)[]
+			[...this.members[email].kofi, ...this.members[email].manual] as (API.KofiOperation | API.ManualOperation)[]
 		)
 			.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 			.map((e) => ({
@@ -53,7 +53,7 @@ export class Dashboard extends Application {
 			}));
 		return new Dialog(
 			{
-				title: `Member: ${id}`,
+				title: `Member: ${email}`,
 				content: Handlebars.compile(/*html*/ `
                 <table>
                     <thead>
@@ -263,10 +263,14 @@ export class Dashboard extends Application {
 							const entryId = entry.id || '_anonymous';
 
 							if (entry.new) {
-								this.donations.manual[entryId] ??= { id: entryId, email: entry.email, donations: [] };
-								this.donations.manual[entryId].donations.push(entryData);
+								this.donations.manual[entry.email] ??= {
+									id: entryId,
+									email: entry.email,
+									donations: [],
+								};
+								this.donations.manual[entry.email].donations.push(entryData);
 							} else {
-								const realEntry = this.donations.manual[entryId].donations.find(
+								const realEntry = this.donations.manual[entry.email].donations.find(
 									(e) => e.id === entry.id,
 								)!;
 								if (
@@ -291,17 +295,17 @@ export class Dashboard extends Application {
 	}
 
 	async modifyDonation(el: HTMLElement) {
-		const { id } = el.parentElement!.dataset as { email: string; id: string };
-		const entry = this.donations.manual[id].donations.find((d) => d.id === id)!;
+		const { id, email } = el.parentElement!.dataset as { email: string; id: string };
+		const entry = this.donations.manual[email].donations.find((d) => d.id === id)!;
 		return this.addDonation(el, { ...entry, new: false });
 	}
 
 	async refundDonation(el: HTMLElement) {
-		const { id, type } = el.parentElement!.dataset as { email: string; id: string; type: string };
+		const { id, email, type } = el.parentElement!.dataset as { email: string; id: string; type: string };
 		const entry =
 			type === 'manual'
-				? this.donations.manual[id]?.donations.find((d) => d.id === id)!
-				: this.donations.kofi[id]?.donations.find((d) => d.kofi_transaction_id === id)!;
+				? this.donations.manual[email]?.donations.find((d) => d.id === id)!
+				: this.donations.kofi[email]?.donations.find((d) => d.kofi_transaction_id === id)!;
 
 		return this.addDonation(el, {
 			...entry,
@@ -315,7 +319,7 @@ export class Dashboard extends Application {
 
 	async removeDonation(el: HTMLElement) {
 		const { id, email } = el.parentElement!.dataset as { email: string; id: string };
-		const entry = this.donations.manual[id].donations.find((d) => d.id === id)!;
+		const entry = this.donations.manual[email].donations.find((d) => d.id === id)!;
 		const confirm = await Dialog.confirm({
 			title: 'Confirm Deletion',
 			content: `<p style="text-align:center">Are you sure you want to delete the donation of <b>${entry.amount} ${entry.currency}</b> from <b>${email}</b>?</p>`,
@@ -323,8 +327,8 @@ export class Dashboard extends Application {
 		if (!confirm) return;
 		const [success] = await API.deleteDonations([id]);
 		if (success) {
-			const idx = this.donations.manual[id].donations.indexOf(entry);
-			this.donations.manual[id].donations.splice(idx, 1);
+			const idx = this.donations.manual[email].donations.indexOf(entry);
+			this.donations.manual[email].donations.splice(idx, 1);
 			this.render();
 		}
 	}
@@ -408,7 +412,7 @@ export class Dashboard extends Application {
 			return target.every((v) => headers.includes(v));
 		}
 		const isDuplicate = (donation: API.Donation) => {
-			const entry = donation.id || '_anonymous';
+			const entry = donation.email;
 			const similarKofi = this.donations.kofi[entry]?.donations.find((d) => {
 				const timeDiff = Math.abs(donation.timestamp - d.timestamp);
 				return (
@@ -508,14 +512,16 @@ export class Dashboard extends Application {
 		const conclusion = add.filter((e, idx) => res[idx]);
 
 		conclusion.forEach((entry) => {
-			const entryId = entry.id || '_anonymous';
+			const entryId = entry.email || '_anonymous';
 			const entryData: API.ManualOperation = {
 				...entry,
 				last_modified_at: Date.now(),
 				last_modified_by: API.getTokenInformation()!.name!,
 			};
-
-			this.donations.manual[entryId] ??= { id: entryId, email: entry.email, donations: [] };
+			const userId =
+				Object.values(game.membership.cache.users!).find((member) => member.email === entry.email)?.id ??
+				'_anonymous';
+			this.donations.manual[entryId] ??= { id: userId, email: entry.email, donations: [] };
 			this.donations.manual[entryId].donations.push(entryData);
 		});
 
@@ -569,7 +575,7 @@ export class Dashboard extends Application {
 	override async getData() {
 		if (!this.members || !this.rates) await this.refreshData();
 		const membershipLevels = getSetting('membershipLevels');
-		this.members = getMembersData(this.donations, this.users) as Record<string, AdminMember>;
+		this.members = getMembersData(this.donations, this.users, 'email') as Record<string, AdminMember>;
 
 		const members = Object.values(this.members)
 			.map((data) => {
