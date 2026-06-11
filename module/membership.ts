@@ -187,7 +187,7 @@ export function calcMembershipLevel(
 	return { membership: membershipLevels.levels[membershipValue] ?? null, donated, donatedAll, temporary };
 }
 
-interface CacheData {
+export interface CacheData {
 	myDonations: Awaited<ReturnType<typeof API.myDonations>> | null;
 	rates: Rates | null;
 	users: Awaited<ReturnType<typeof API.getUsers>> | null;
@@ -209,6 +209,7 @@ export class MembershipAPI {
 	};
 	#cache_time = 5 * 60 * 1_000;
 	#last = null as null | number;
+	#refreshPromise: Promise<void> | null = null;
 
 	/**
 	 * Retrieves the data for the membership.
@@ -228,8 +229,7 @@ export class MembershipAPI {
 			}
 			user = game.users.get(user)!;
 		}
-		const timeDiff = Date.now() - (this.#last || 0);
-		if (timeDiff > this.#cache_time) this.refresh();
+		this.refresh();
 		const member =
 			this.cache.members?.[user.id] ??
 			({
@@ -353,8 +353,20 @@ export class MembershipAPI {
 	/**
 	 * Refreshes the user data accessing the donation-tracker API.
 	 */
-	async refresh(): Promise<void> {
+	async refresh(force = false): Promise<void> {
 		if (this.devMode) return;
+		if (!force) {
+			const timeDiff = Date.now() - (this.#last || 0);
+			if (timeDiff <= this.#cache_time) return;
+		}
+		if (this.#refreshPromise) return this.#refreshPromise;
+		this.#refreshPromise = this.#doRefresh().finally(() => {
+			this.#refreshPromise = null;
+		});
+		return this.#refreshPromise;
+	}
+
+	async #doRefresh(): Promise<void> {
 		[this.cache.myDonations, this.cache.rates] = await Promise.all([API.myDonations(), API.rates()]);
 		this.cache.users = this.isAdmin ? await API.getUsers() : null;
 		this.cache.donations = await API.allDonations();
