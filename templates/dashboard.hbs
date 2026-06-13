@@ -34,9 +34,9 @@
                         <td>{{donatedParsed}}</td>
                         <td>{{donatedAllParsed}}</td>
                         <td>
-                            <a title="View donations" class="fas fa-eye" data-action="view-member" data-entry="{{id}}"></a>
+                            <a title="View donations" class="fas fa-eye" data-action="view-member" data-entry="{{email}}"></a>
                             {{#if id}}
-                            <a title="Special membership" class="fas fa-book{{#if special_membership}}-open{{/if}}" data-action="special-membership" data-entry="{{id}}"></a>
+                            <a title="Special membership" class="fas fa-book{{#if special_membership}}-open{{/if}}" data-action="special-membership" data-entry="{{id}}" {{#unless id}}disabled{{/if}}></a>
                             {{/if}}
                         </td>
                     </tr>

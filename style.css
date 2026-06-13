@@ -39,7 +39,7 @@
 	padding: 5px 5px;
 }
 
-.donation-tracker td input[type='checkbox'] {
+.donation-tracker td input[type="checkbox"] {
 	height: auto;
 }
 
@@ -65,6 +65,10 @@
 
 .donation-tracker td a {
 	padding: 0 3px;
+}
+
+.donation-tracker td a[disabled] {
+	opacity: 0.5;
 }
 
 .donation-tracker tr.refund {
@@ -97,7 +101,7 @@
 	align-items: center;
 }
 
-body.system-dnd5e input[type='datetime-local'] {
+body.system-dnd5e input[type="datetime-local"] {
 	width: calc(100% - 2px);
 	min-width: 20px;
 	height: var(--form-field-height);
