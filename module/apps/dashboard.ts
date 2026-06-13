@@ -7,7 +7,7 @@ import { CURRENCIES, DTConfig } from './config.js';
 
 export class Dashboard extends Application {
 	static override get defaultOptions() {
-		return mergeObject(super.defaultOptions, {
+		return foundry.utils.mergeObject(super.defaultOptions, {
 			id: 'dt-dashboard',
 			title: `Donation Tracker - Dashboard`,
 			classes: ['sheet', 'donation-tracker'],
