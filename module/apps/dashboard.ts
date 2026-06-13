@@ -699,10 +699,11 @@ export class Dashboard extends Application {
 			return;
 		}
 		const total = rows.reduce((sum, tr) => sum + Number(tr.dataset.tableAmount ?? 0), 0);
-		target.textContent = total.toLocaleString('en-US', {
+		const totalParsed = total.toLocaleString('en-US', {
 			style: 'currency',
 			currency: getSetting('membershipLevels').baseCurrency,
 		});
+		target.textContent = `${totalParsed} (${rows.length.toLocaleString('en-US')})`;
 	}
 
 	protected override _onSearchFilter(_ev: KeyboardEvent, _query: string, rgx: RegExp, html: HTMLElement): void {
