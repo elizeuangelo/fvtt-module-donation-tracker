@@ -591,6 +591,7 @@ export class Dashboard extends Application {
 						Boolean(game.users.get(data.id ?? '')?.getFlag(MODULE_ID, 'special-membership')) ?? false,
 					donated: membership.donated,
 					donatedAll: membership.donatedAll,
+					tableAmount: membership.donated,
 					donatedParsed: membership.donated.toLocaleString('en-US', {
 						style: 'currency',
 						currency: membershipLevels.baseCurrency,
@@ -619,6 +620,7 @@ export class Dashboard extends Application {
 				anonymous: !Boolean(d.email),
 				amount: d.amount,
 				amount_value: +d.amount,
+				table_amount_value: d.currency in this.rates.rates ? +d.amount / this.rates.rates[d.currency] : 0,
 				can_refund: +d.amount > 0,
 				is_refunded: false,
 				currency: d.currency,
@@ -688,6 +690,21 @@ export class Dashboard extends Application {
 		}
 	}
 
+	protected updateTableSummary(table: HTMLElement) {
+		const rows = [...table.querySelectorAll<HTMLTableRowElement>('tbody tr:not([hidden])')];
+		const target = table.closest('.tab')?.querySelector<HTMLElement>('[data-table-total]');
+		if (!target) return;
+		if (target.dataset.tableTotal === 'count') {
+			target.textContent = rows.length.toLocaleString('en-US');
+			return;
+		}
+		const total = rows.reduce((sum, tr) => sum + Number(tr.dataset.tableAmount ?? 0), 0);
+		target.textContent = total.toLocaleString('en-US', {
+			style: 'currency',
+			currency: getSetting('membershipLevels').baseCurrency,
+		});
+	}
+
 	protected override _onSearchFilter(_ev: KeyboardEvent, _query: string, rgx: RegExp, html: HTMLElement): void {
 		html.querySelectorAll<HTMLTableRowElement>('tbody tr').forEach((tr) => {
 			const show = [...tr.querySelectorAll('td')].some((td) => td.textContent?.match(rgx));
@@ -695,6 +712,7 @@ export class Dashboard extends Application {
 			else tr.dataset.searchHidden = 'true';
 			this.updateTableRowVisibility(tr);
 		});
+		this.updateTableSummary(html);
 	}
 
 	#filterPeriods = [
@@ -720,9 +738,11 @@ export class Dashboard extends Application {
 		};
 		const value = event.currentTarget.value as string;
 		if (!(value in periods)) {
-			target.find('tbody tr').each((_idx, tr) => {
-				tr.removeAttribute('hidden');
+			target.find<HTMLTableRowElement>('tbody tr').each((_idx, tr) => {
+				tr.dataset.periodHidden = 'false';
+				this.updateTableRowVisibility(tr);
 			});
+			this.updateTableSummary(target[0]);
 			return;
 		}
 		const period = periods[value as keyof typeof periods];
@@ -734,6 +754,7 @@ export class Dashboard extends Application {
 			else tr.dataset.periodHidden = 'true';
 			this.updateTableRowVisibility(tr);
 		});
+		this.updateTableSummary(target[0]);
 	}
 
 	override async close() {
