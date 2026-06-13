@@ -175,12 +175,9 @@ export function calcMembershipLevel(
 		}
 
 		const welcomeGiftMembershipLevel = calcWelcomeGiftMembershipLevel(data, membershipLevels);
-		if (membershipValue === -1 && welcomeGiftMembershipLevel > -1) {
-			const isBetter = welcomeGiftMembershipLevel > membershipValue;
-			if (isBetter) {
-				membershipValue = welcomeGiftMembershipLevel;
-				temporary = true;
-			}
+		if (welcomeGiftMembershipLevel > membershipValue) {
+			membershipValue = welcomeGiftMembershipLevel;
+			temporary = true;
 		}
 	}
 
