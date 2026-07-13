@@ -165,7 +165,7 @@ export function calcMembershipLevel(
 	}
 
 	if (!user?.isGM || !membershipLevels.gmExclude) {
-		if (data.registration) upgradeMembership(membershipLevels.levels.findLast((entry) => entry.accrued <= donated));
+		if (data.last_login) upgradeMembership(membershipLevels.levels.findLast((entry) => entry.accrued <= donated));
 
 		if (user) {
 			const flag = user.getFlag(MODULE_ID, 'special-membership') as { exp: number; membership: string };
