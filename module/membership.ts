@@ -245,7 +245,6 @@ export class MembershipAPI {
 	 * @remarks This method checks and maintains user registration data in the module's flags.
 	 */
 	async ensuresRegistrationLog(): Promise<void> {
-		if (this.membershipLevel === -1) return;
 		if (game.user.getFlag(MODULE_ID, 'registeredAt') === undefined) {
 			await game.user.setFlag(MODULE_ID, 'registeredAt', Date.now());
 			return;
