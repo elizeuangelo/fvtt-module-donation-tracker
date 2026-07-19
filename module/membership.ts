@@ -80,7 +80,8 @@ export function getMembersData(
 		const userCache = usersCache?.find((u) => u.id === userId);
 		const kofi: API.SafeOperation[] | API.KofiOperation[] = donations.kofi[userId]?.donations ?? [];
 		const manual: API.SafeOperation[] | API.ManualOperation[] = donations.manual[userId]?.donations ?? [];
-		const memberKey = key === 'email' ? userCache!.email : userId;
+		const memberKey = key === 'email' ? userCache?.email : userId;
+		if (!memberKey) return;
 		members[memberKey] = {
 			id: userId,
 			user,
