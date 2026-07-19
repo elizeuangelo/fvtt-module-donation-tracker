@@ -74,7 +74,7 @@ export function getMembersData(
 		throw new Error('Parsing member data using invalid email key');
 	}
 	const members: Record<string, Member> = {};
-	const users = usersCache ?? game.users.filter((u) => Boolean(u.getFlag(MODULE_ID, 'registeredAt')));
+	const users = game.users.filter((u) => Boolean(u.getFlag(MODULE_ID, 'registeredAt')));
 	users.forEach(({ id: userId }) => {
 		const user = game.users.get(userId);
 		const userCache = usersCache?.find((u) => u.id === userId);
