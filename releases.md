@@ -20,6 +20,14 @@
 -   Editing or refunding a donation in a currency outside USD, EUR and GBP keeps its currency
 -   The dashboard's time period filter no longer shifts by the local time zone
 -   Expired special memberships are no longer highlighted in the dashboard
+-   The dashboard shows every time in local time; refund comments mark their UTC time with a `Z`
+-   The dashboard's time period filters keep their choice when the dashboard redraws, and offer the configured period, which the donations table now uses by default
+-   The members table lists every member by default; its filter is labelled as filtering by last login
+-   Members who never logged in show "Never" instead of 1970
+-   The member dialog shows the member's total in the base currency
+-   The dashboard no longer breaks when the admin token expires while it is open
+-   Opening the dashboard again brings the open one to the front instead of opening a second one
+-   The Ko-fi CSV import reads amounts with thousands separators and warns about rows it cannot read
 
 ## v1.1.0
 

@@ -81,6 +81,23 @@ export function toDatetimeLocal(timestamp: number): string {
 }
 
 /**
+ * Formats a timestamp for display, in local time, as `YYYY-MM-DD HH:MM`.
+ * @param timestamp milliseconds since the epoch
+ */
+export function formatLocalTime(timestamp: number): string {
+	return toDatetimeLocal(timestamp).replace('T', ' ');
+}
+
+/**
+ * Parses an amount such as `5.00` or `1,000.00`.
+ * @returns the amount, or NaN when the text is not one
+ */
+export function parseAmount(text: string): number {
+	const clean = text.trim().replace(/[\s,]/g, '');
+	return clean === '' ? NaN : Number(clean);
+}
+
+/**
  * Parses a CSV file: quoted fields may contain delimiters, line breaks and doubled quotes.
  * @param str text
  * @param delimiter csv delimiter

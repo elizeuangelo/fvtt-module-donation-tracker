@@ -9,7 +9,15 @@ import {
 	ratesForBase,
 } from '../membership.js';
 import { getSetting, MODULE_ID, PATH, setSetting } from '../settings.js';
-import { parseCSV, parseTime, parseUtcDate, readFile, toDatetimeLocal } from '../utils.js';
+import {
+	formatLocalTime,
+	parseAmount,
+	parseCSV,
+	parseTime,
+	parseUtcDate,
+	readFile,
+	toDatetimeLocal,
+} from '../utils.js';
 import { CURRENCIES, DTConfig } from './config.js';
 
 export class Dashboard extends Application {
@@ -27,6 +35,15 @@ export class Dashboard extends Application {
 			width: 970,
 			height: 'auto',
 		}) as FormApplicationOptions;
+	}
+
+	/**
+	 * Shows the dashboard: the one already open, redrawn and brought to the front, or a new one.
+	 */
+	static open() {
+		const open = Object.values(ui.windows).find((app): app is Dashboard => app instanceof Dashboard);
+		// Forcing a render also restores the window and brings it to the front.
+		return (open ?? new Dashboard()).render(true);
 	}
 
 	users!: Awaited<ReturnType<typeof API.getUsers>>;
@@ -68,13 +85,22 @@ export class Dashboard extends Application {
 
 	viewMember(el: HTMLElement) {
 		const email = el.dataset.entry!;
-		const donations = (
-			[...this.members[email].kofi, ...this.members[email].manual] as (API.KofiOperation | API.ManualOperation)[]
-		)
-			.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+		const member = this.members[email];
+		if (!member) return ui.notifications.error('Member not found, please refresh the dashboard');
+		const baseCurrency = getSetting('membershipLevels').baseCurrency;
+		const rates = ratesForBase(this.rates, baseCurrency).rates;
+		const entries = [...member.kofi, ...member.manual] as (API.KofiOperation | API.ManualOperation)[];
+		// Same rules as the dashboard totals: net of refunds, without donations that cannot be converted.
+		const converted = entries.map((e) => convertAmount(e, rates)).filter((value): value is number => value !== null);
+		const total = converted
+			.reduce((sum, value) => sum + value, 0)
+			.toLocaleString('en-US', { style: 'currency', currency: baseCurrency });
+		const uncounted = entries.length - converted.length;
+		const donations = entries
+			.sort((a, b) => b.timestamp - a.timestamp)
 			.map((e) => ({
 				...e,
-				timestamp: new Date(e.timestamp).toLocaleString(),
+				timestamp: formatLocalTime(e.timestamp),
 				source: 'kofi_transaction_id' in e ? 'Kofi Webhook' : 'Manual',
 				comment:
 					'comment' in e
@@ -106,9 +132,18 @@ export class Dashboard extends Application {
                         </tr>
                         {{/each}}
                     </tbody>
+                    <tfoot style="text-align: center">
+                        <tr>
+                            <th>Total</th>
+                            <th colspan="4">
+                                {{total}}
+                                {{#if uncounted}}(+ {{uncounted}} without an exchange rate, not counted){{/if}}
+                            </th>
+                        </tr>
+                    </tfoot>
                 </table>
             `)(
-					{ donations },
+					{ donations, total, uncounted },
 					{
 						allowProtoMethodsByDefault: true,
 						allowProtoPropertiesByDefault: true,
@@ -327,7 +362,8 @@ export class Dashboard extends Application {
 			email: entry.email,
 			currency: entry.currency,
 			amount: (-amount).toFixed(2),
-			comment: `Refunded: ${new Date(entry.timestamp).toISOString().slice(0, 16)}`,
+			// The donation is named by its minute in UTC, which the table uses to find it again.
+			comment: `Refunded: ${new Date(entry.timestamp).toISOString().slice(0, 16)}Z`,
 		});
 	}
 
@@ -412,7 +448,7 @@ export class Dashboard extends Application {
                 `)({
 					donations: donations.map((d) => ({
 						...d,
-						timestamp: new Date(d.timestamp).toLocaleString(),
+						timestamp: formatLocalTime(d.timestamp),
 						email: d.email || '<anonymous>',
 						duplicate: isDuplicate(d),
 					})),
@@ -432,20 +468,26 @@ export class Dashboard extends Application {
 			ui.notifications.error('The CSV does not match a Kofi Payment CSV');
 			return;
 		}
-		const additions: API.Donation[] = rows
-			.filter((row) => +row['Received'] > 0)
-			.map((d) => ({
-				id: randomID(),
-				// The export gives the time in UTC, without saying so in the value itself.
-				timestamp: parseUtcDate(d['DateTime (UTC)']),
-				email: d['BuyerEmail'].trim().toLowerCase(),
-				currency: d['Currency'].trim().toUpperCase(),
-				amount: d['Received'],
-				comment: `${d.TransactionType}${d.Item ? ` (${d.Item})` : ''}${d.From ? ` [${d.From}]` : ''}${
-					d.Message ? `: ${d.Message}` : ''
-				}`,
-			}))
-			.filter((d) => Number.isFinite(d.timestamp))
+		const parsed = rows.map((d) => ({
+			id: randomID(),
+			// The export gives the time in UTC, without saying so in the value itself.
+			timestamp: parseUtcDate(d['DateTime (UTC)']),
+			email: d['BuyerEmail'].trim().toLowerCase(),
+			currency: d['Currency'].trim().toUpperCase(),
+			// Amounts can have thousands separators, such as "1,000.00".
+			value: parseAmount(d['Received']),
+			comment: `${d.TransactionType}${d.Item ? ` (${d.Item})` : ''}${d.From ? ` [${d.From}]` : ''}${
+				d.Message ? `: ${d.Message}` : ''
+			}`,
+		}));
+		const unreadable = parsed.filter((d) => !Number.isFinite(d.timestamp) || !Number.isFinite(d.value));
+		if (unreadable.length) {
+			ui.notifications.warn(`${unreadable.length} rows of the CSV were skipped: their date or amount could not be read`);
+		}
+		// Rows without money received, such as free follows, are not donations.
+		const additions: API.Donation[] = parsed
+			.filter((d) => Number.isFinite(d.timestamp) && d.value > 0)
+			.map(({ value, ...d }) => ({ ...d, amount: value.toFixed(2) }))
 			.sort((a, b) => b.timestamp - a.timestamp);
 		const include = await previewTable(additions);
 		if (!include || include.length === 0) return;
@@ -524,7 +566,7 @@ export class Dashboard extends Application {
 				return {
 					id: data.id,
 					name: data.user?.name ?? '<unknown>',
-					last_login: new Date(data.last_login).toISOString().slice(0, 16),
+					last_login: data.last_login > 0 ? formatLocalTime(data.last_login) : 'Never',
 					last_login_value: data.last_login,
 					email: data.email,
 					membership: membership.membership?.name ?? '<None>',
@@ -532,7 +574,6 @@ export class Dashboard extends Application {
 					special_membership: Boolean(special && special.exp > Date.now()),
 					donated: membership.donated,
 					donatedAll: membership.donatedAll,
-					tableAmount: membership.donated,
 					donatedParsed: formatMoney(membership.donated),
 					donatedAllParsed: formatMoney(membership.donatedAll),
 					temporaryMembership: membership.temporary,
@@ -540,8 +581,8 @@ export class Dashboard extends Application {
 			})
 			.sort((a, b) => b.donated - a.donated);
 
-		const info = getTokenInformation()!;
-		const canMutate = info.perms!.includes('mutate');
+		// The token can expire while the dashboard is open: then nothing can be changed any more.
+		const canMutate = getTokenInformation()?.perms?.includes('mutate') ?? false;
 		const since = Date.now() - parseTime(membershipLevels.period)!;
 
 		const donations = [...Object.values(this.donations.kofi), ...Object.values(this.donations.manual)]
@@ -552,7 +593,9 @@ export class Dashboard extends Application {
 				const value = convertAmount(d, rates.rates);
 				return {
 					in_period: d.timestamp > since,
-					timestamp: new Date(d.timestamp).toISOString().slice(0, 16),
+					timestamp: formatLocalTime(d.timestamp),
+					// How refunds name the donation they refund.
+					utc_minute: new Date(d.timestamp).toISOString().slice(0, 16),
 					timestamp_value: d.timestamp,
 					email: d.email || '_anonymous',
 					anonymous: !Boolean(d.email),
@@ -574,7 +617,7 @@ export class Dashboard extends Application {
 							? d.comment
 							: `${d.type}${d.tier_name ? ` (${d.tier_name})` : ''}${d.message ? `: ${d.message}` : ''}`,
 					last_modified_at:
-						'last_modified_at' in d ? new Date(d.last_modified_at).toISOString().slice(0, 16) : '-',
+						'last_modified_at' in d ? formatLocalTime(d.last_modified_at) : '-',
 					last_modified_by: 'last_modified_by' in d ? d.last_modified_by : '-',
 					mutate: canMutate,
 					can_modify: 'last_modified_by' in d && canMutate,
@@ -596,7 +639,7 @@ export class Dashboard extends Application {
 				const candidates = donations.filter(
 					(d) =>
 						d.amount_value > 0 &&
-						d.timestamp === match[1] &&
+						d.utc_minute === match[1] &&
 						d.email.toLowerCase() === refund.email.toLowerCase() &&
 						d.currency === refund.currency &&
 						cents(d.remaining) > 0,
@@ -696,20 +739,32 @@ export class Dashboard extends Application {
 	}
 
 	#filterPeriods = [
-		{ inputSelector: 'select[name="filter-period-members"]', contentSelector: '#members' },
-		{ inputSelector: 'select[name="filter-period-donations"]', contentSelector: '#donations' },
+		{ name: 'filter-period-members', contentSelector: '#members' },
+		{ name: 'filter-period-donations', contentSelector: '#donations' },
 	];
+	/**
+	 * The period chosen in each filter, kept across redraws. By default every member is listed,
+	 * and the donations of the configured period, matching the summary below them.
+	 */
+	#periodChoice: Record<string, string> = {
+		'filter-period-members': 'all',
+		'filter-period-donations': 'period',
+	};
 	protected addFilterPeriodsListeners(html: JQuery<HTMLElement>) {
-		this.#filterPeriods.forEach(({ inputSelector, contentSelector }) => {
+		this.#filterPeriods.forEach(({ name, contentSelector }) => {
 			const target = html.find(contentSelector);
-			html.find(inputSelector).on('change', (ev) => {
+			const select = html.find<HTMLSelectElement>(`select[name="${name}"]`);
+			select.val(this.#periodChoice[name]);
+			select.on('change', (ev) => {
+				this.#periodChoice[name] = (ev.currentTarget as HTMLSelectElement).value;
 				this._onSelectFilterPeriod(ev, target);
 			});
-			html.find(inputSelector).trigger('change');
+			select.trigger('change');
 		});
 	}
 	protected _onSelectFilterPeriod(event: JQuery.ChangeEvent, target: JQuery<HTMLElement>) {
-		const periods = {
+		const periods: Record<string, string> = {
+			period: getSetting('membershipLevels').period,
 			month: '1m',
 			month2: '2m',
 			month3: '3m',
@@ -717,7 +772,8 @@ export class Dashboard extends Application {
 			year: '1y',
 		};
 		const value = event.currentTarget.value as string;
-		if (!(value in periods)) {
+		const period = value in periods ? parseTime(periods[value]) : null;
+		if (!period) {
 			target.find<HTMLTableRowElement>('tbody tr').each((_idx, tr) => {
 				tr.dataset.periodHidden = 'false';
 				this.updateTableRowVisibility(tr);
@@ -725,11 +781,9 @@ export class Dashboard extends Application {
 			this.updateTableSummary(target[0]);
 			return;
 		}
-		const period = periods[value as keyof typeof periods];
-		const since = Date.now() - parseTime(period)!;
+		const since = Date.now() - period;
 		target.find<HTMLTableRowElement>('tbody tr').each((_idx, tr) => {
-			// Milliseconds since the epoch: the text shown in the row is UTC without a zone, and
-			// would be read back as local time.
+			// Milliseconds since the epoch, rather than the local time shown in the row.
 			const show = Number(tr.dataset.timestamp) > since;
 			if (show) tr.dataset.periodHidden = 'false';
 			else tr.dataset.periodHidden = 'true';
@@ -738,8 +792,8 @@ export class Dashboard extends Application {
 		this.updateTableSummary(target[0]);
 	}
 
-	override async close() {
-		super.close({ force: true });
+	override async close(options?: { force?: boolean } & Record<string, unknown>) {
+		return super.close({ ...options, force: true });
 	}
 }
 

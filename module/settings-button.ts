@@ -16,7 +16,7 @@ export function createButton(html: JQuery<HTMLElement>) {
 	html.find('#settings-game').append(btn);
 
 	btn.on('click', () => {
-		if (API.isAdmin()) new Dashboard().render(true);
+		if (API.isAdmin()) Dashboard.open();
 		else if (API.getTokenPayload()?.perms) expiredAdmin();
 		else new LoginApp().render(true);
 	});

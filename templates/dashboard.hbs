@@ -22,7 +22,7 @@
                 </thead>
                 <tbody style="text-align: center">
                     {{#each members}}
-                    <tr {{#if special_membership}}class="special-member"{{/if}} data-timestamp="{{last_login_value}}" data-table-amount="{{tableAmount}}">
+                    <tr {{#if special_membership}}class="special-member"{{/if}} data-timestamp="{{last_login_value}}">
                         <td>{{last_login}}</td>
                         <td title="{{name}}" style="font-weight:bold">{{name}}</td>
                         <td title="{{email}}">{{email}}</td>
@@ -49,10 +49,11 @@
                 <input type="search" name="filter-members" style="width: 200px">
             </label>
             <label>
-                Filter by Time Period
+                Filter by Last Login
                 <select name="filter-period-members">
                     <option value="all">All</option>
-                    <option value="month" selected="selected">Last Month</option>
+                    <option value="period">Period ({{period}})</option>
+                    <option value="month">Last Month</option>
                     <option value="month2">2 Months</option>
                     <option value="month3">3 Months</option>
                     <option value="month6">6 Months</option>
@@ -126,7 +127,8 @@
                 Filter by Time Period
                 <select name="filter-period-donations">
                     <option value="all">All</option>
-                    <option value="month" selected="selected">Last Month</option>
+                    <option value="period">Period ({{period}})</option>
+                    <option value="month">Last Month</option>
                     <option value="month2">2 Months</option>
                     <option value="month3">3 Months</option>
                     <option value="month6">6 Months</option>
