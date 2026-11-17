@@ -70,7 +70,7 @@ export function getMembersData(
 	usersCache: Awaited<ReturnType<typeof API.getUsers>> | null,
 	key: 'id' | 'email' = 'id',
 ) {
-	if (key === 'email' && !usersCache?.[0].email) {
+	if (key === 'email' && !usersCache) {
 		throw new Error('Parsing member data using invalid email key');
 	}
 	const members: Record<string, Member> = {};
@@ -146,15 +146,11 @@ export function calcMembershipLevel(
 	};
 
 	if (rates) {
-		data.kofi.forEach((entry) => {
+		[...data.kofi, ...data.manual].forEach((entry) => {
+			// A donation in a currency without a known rate cannot be converted; counting it
+			// would turn the whole total into NaN.
 			const value = +entry.amount / rates.rates[entry.currency];
-			donatedAll += value;
-			if (entry.timestamp < since) return;
-			donated += value;
-		});
-
-		data.manual.forEach((entry) => {
-			const value = +entry.amount / rates.rates[entry.currency];
+			if (!Number.isFinite(value)) return;
 			donatedAll += value;
 			if (entry.timestamp < since) return;
 			donated += value;
@@ -170,7 +166,7 @@ export function calcMembershipLevel(
 
 		if (user) {
 			const flag = user.getFlag(MODULE_ID, 'special-membership') as { exp: number; membership: string };
-			if (flag && flag.exp > since) {
+			if (flag && flag.exp > Date.now()) {
 				upgradeMembership(flag.membership);
 			}
 		}
@@ -260,13 +256,23 @@ export class MembershipAPI {
 	ready = false;
 
 	constructor() {
-		this.refreshToken().then(async (res) => {
-			if (res !== null) await this.ensuresRegistrationLog();
-			await this.refresh();
-			console.log('Membership API Ready');
-			Hooks.callAll('membershipReady', this);
-			this.ready = true;
-		});
+		this.refreshToken()
+			.catch((err) => {
+				console.warn('Donation-Tracker | Could not refresh the session', err);
+				return null;
+			})
+			.then(async (res) => {
+				if (res !== null) await this.ensuresRegistrationLog();
+				await this.refresh();
+			})
+			.catch((err) => console.error('Donation-Tracker | Could not load membership data', err))
+			.finally(() => {
+				// Modules waiting on this hook must not hang when the API is unreachable:
+				// in that case everyone simply has no membership until a refresh succeeds.
+				console.log('Membership API Ready');
+				this.ready = true;
+				Hooks.callAll('membershipReady', this);
+			});
 	}
 
 	// ---------------------------------------- //
@@ -357,18 +363,35 @@ export class MembershipAPI {
 			if (timeDiff <= this.#cache_time) return;
 		}
 		if (this.#refreshPromise) return this.#refreshPromise;
-		this.#refreshPromise = this.#doRefresh().finally(() => {
-			this.#refreshPromise = null;
-		});
+		this.#refreshPromise = this.#doRefresh()
+			.catch((err) => console.error('Donation-Tracker | Refresh failed', err))
+			.finally(() => {
+				// Also after a failure, so an unreachable API is retried once per cache period
+				// instead of on every membership check.
+				this.#last = Date.now();
+				this.#refreshPromise = null;
+			});
 		return this.#refreshPromise;
 	}
 
 	async #doRefresh(): Promise<void> {
-		[this.cache.myDonations, this.cache.rates] = await Promise.all([API.myDonations(), API.rates()]);
-		this.cache.users = this.isAdmin ? await API.getUsers() : null;
-		this.cache.donations = await API.allDonations();
-		this.cache.members = getMembersData(this.cache.donations, this.cache.users);
-		this.#last = Date.now();
+		// Each source is loaded on its own: one failing must not take the others down with it.
+		const orNull = <T>(request: Promise<T>, what: string): Promise<T | null> =>
+			request.catch((err) => {
+				console.warn(`Donation-Tracker | Could not load ${what}`, err);
+				return null;
+			});
+		const [myDonations, rates, users, donations] = await Promise.all([
+			orNull(API.myDonations(), 'your donations'),
+			orNull(API.rates(), 'exchange rates'),
+			this.isAdmin ? orNull(API.getUsers(), 'the user list') : null,
+			orNull(API.allDonations(), 'donations'),
+		]);
+		this.cache.myDonations = myDonations;
+		this.cache.rates = rates ?? this.cache.rates;
+		this.cache.users = users;
+		this.cache.donations = donations ?? this.cache.donations;
+		this.cache.members = this.cache.donations ? getMembersData(this.cache.donations, this.cache.users) : null;
 	}
 
 	/**

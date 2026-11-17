@@ -3,7 +3,6 @@
 	<nav class="tabs" data-group="primary">
 		<a class="item" data-tab="members">Members</a>
 		<a class="item" data-tab="donations">Donations</a>
-        {{#if admin}}<a class="item" data-tab="server">Server</a>{{/if}}
 	</nav>
 
     <!-- Members Tab -->
@@ -140,17 +139,6 @@
         </div>
         <div class="footer-buttons">
             <button type="button" data-action="import-kofi"><i class="far fa-table"></i> Import Kofi CSV</button>
-        </div>
-    </div>
-
-    <!-- Server Tab -->
-	<div class="tab" data-group="primary" data-tab="server">
-        <p style="text-align:center;width:50%;margin-left: 25%;"><span style="color:red;font-weight:bold">CAUTION: </span>Operations done here might be irreversible.</p>
-        <hr>
-        <div class="footer-buttons">
-            <button type="button" data-action="update"><i class="far fa-radar"></i> Check for Updates</button>
-            <button type="button" data-action="restart"><i class="far fa-server"></i> Restart Server</button>
-            <button type="button" data-action="upload-config"><i class="far fa-upload"></i> Upload new Configuration</button>
         </div>
     </div>
 </form>

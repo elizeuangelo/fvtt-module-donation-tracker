@@ -106,12 +106,27 @@ function getHeaders() {
 	return { 'DT-Token': getSetting('token') };
 }
 
-export function getTokenPayload() {
-	const rgx = /.+\.(.+)\..+/;
-	const match = getSetting('token').match(rgx);
-	if (!match) return null;
+/**
+ * Calls the API and parses its JSON answer. Rejects when the server answers with an error status,
+ * instead of failing later on an empty body.
+ */
+async function requestJson<T>(route: string, init: RequestInit = {}): Promise<T> {
+	const res = await fetch(getRoute(route), { ...init, headers: getHeaders() });
+	if (!res.ok) throw new Error(`Donation Tracker API answered ${res.status} on ${route}`);
+	return (await res.json()) as T;
+}
 
-	return JSON.parse(atob(match[1])) as TokenData;
+export function getTokenPayload() {
+	const parts = getSetting('token').split('.');
+	if (parts.length !== 3) return null;
+	try {
+		// The payload is base64url-encoded UTF-8, which atob alone does not decode.
+		const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+		const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+		return JSON.parse(new TextDecoder().decode(bytes)) as TokenData;
+	} catch {
+		return null;
+	}
 }
 
 export function getTokenInformation() {
@@ -170,13 +185,15 @@ export async function refreshToken() {
 
 export async function myDonations() {
 	if (!isValid()) return null;
-	const manual = (await (await fetch(getRoute('/manual/me'), { headers: getHeaders() })).json()) as ManualUserData;
-	const kofi = (await (await fetch(getRoute('/kofi/me'), { headers: getHeaders() })).json()) as KofiUserData;
+	const [manual, kofi] = await Promise.all([
+		requestJson<ManualUserData>('/manual/me'),
+		requestJson<KofiUserData>('/kofi/me'),
+	]);
 	return { manual, kofi };
 }
 
 export async function rates() {
-	return (await (await fetch(getRoute('/rates'), { headers: getHeaders() })).json()) as Rates;
+	return requestJson<Rates | null>('/rates');
 }
 
 // -------------------------------------- //
@@ -198,10 +215,10 @@ export function checkPermission(perm: Permissions) {
 }
 
 export async function allDonations() {
-	const manualArr = (await (
-		await fetch(getRoute('/manual/all'), { headers: getHeaders() })
-	).json()) as ManualUserData[];
-	const kofiArr = (await (await fetch(getRoute('/kofi/all'), { headers: getHeaders() })).json()) as KofiUserData[];
+	const [manualArr, kofiArr] = await Promise.all([
+		requestJson<ManualUserData[]>('/manual/all'),
+		requestJson<KofiUserData[]>('/kofi/all'),
+	]);
 
 	const arrayToRecord = <T extends { id: string; donations: SafeOperation[] }>(arr: T[]) =>
 		arr
@@ -222,30 +239,7 @@ export async function allDonations() {
 }
 
 export async function getUsers() {
-	return (await (await fetch(getRoute('/users'), { headers: getHeaders() })).json()) as User[];
-}
-
-export async function serverVersion() {
-	return (await (await fetch(getRoute('/update/version'), { headers: getHeaders() })).json()) as {
-		current: string;
-		update: string;
-	};
-}
-
-export async function serverUpdate() {
-	return fetch(getRoute('/update/apply'), { method: 'POST', headers: getHeaders() });
-}
-
-export async function serverUpdateToken(text: string) {
-	return fetch(getRoute('/update/token'), { method: 'POST', headers: getHeaders(), body: text });
-}
-
-export async function serverConfig(text: string) {
-	return fetch(getRoute('/config'), { method: 'POST', headers: getHeaders(), body: text });
-}
-
-export async function serverRestart() {
-	return await (await fetch(getRoute('/restart'), { method: 'POST', headers: getHeaders() })).text();
+	return requestJson<User[]>('/users');
 }
 
 // -------------------------------------- //
@@ -258,18 +252,22 @@ export interface Donation {
 	amount: string;
 	comment: string;
 }
+/**
+ * Adds donations. The answer has one flag per entry: `false` means its id already existed.
+ */
 export async function addDonations(entries: Donation[]) {
-	return (await (
-		await fetch(getRoute('/manual/add'), { method: 'POST', headers: getHeaders(), body: JSON.stringify(entries) })
-	).json()) as boolean[];
+	return requestJson<boolean[]>('/manual/add', { method: 'POST', body: JSON.stringify(entries) });
 }
+/**
+ * Changes donations. The answer lists the donations as stored after the change; entries the
+ * server could not find are left out.
+ */
 export async function modifyDonations(entries: Donation[]) {
-	return (await (
-		await fetch(getRoute('/manual/change'), { method: 'PUT', headers: getHeaders(), body: JSON.stringify(entries) })
-	).json()) as boolean[];
+	return requestJson<ManualOperation[]>('/manual/change', { method: 'PUT', body: JSON.stringify(entries) });
 }
+/**
+ * Deletes donations. The answer has one flag per id: `false` means it did not exist.
+ */
 export async function deleteDonations(ids: string[]) {
-	return (await (
-		await fetch(getRoute('/manual/remove'), { method: 'DELETE', headers: getHeaders(), body: JSON.stringify(ids) })
-	).json()) as boolean[];
+	return requestJson<boolean[]>('/manual/remove', { method: 'DELETE', body: JSON.stringify(ids) });
 }

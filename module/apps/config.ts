@@ -61,6 +61,7 @@ export class DTConfig extends FormApplication<any> {
 		},
 	) {
 		const oldEntry = this.preview.levels.find((e) => e.id === entry.id);
+		const escape = Handlebars.escapeExpression;
 
 		Dialog.wait(
 			{
@@ -69,11 +70,11 @@ export class DTConfig extends FormApplication<any> {
                 <form autocomplete="off">
                     <div class="form-group">
                         <label>Id</label>
-                        <input type="text" name="id" value="${entry.id}">
+                        <input type="text" name="id" value="${escape(entry.id)}">
                     </div>
                     <div class="form-group">
                         <label>Name</label>
-                        <input type="text" name="name" value="${entry.name}" required>
+                        <input type="text" name="name" value="${escape(entry.name)}" required>
                     </div>
                     <div class="form-group">
                         <label>Accrued Value (${this.preview.baseCurrency})</label>
@@ -81,7 +82,7 @@ export class DTConfig extends FormApplication<any> {
                     </div>
                     <div class="form-group">
                         <label>Description</label>
-                        <textarea name="description" rows="6">${entry.description}</textarea>
+                        <textarea name="description" rows="6">${escape(entry.description)}</textarea>
                     </div>
                 </form>
             `,

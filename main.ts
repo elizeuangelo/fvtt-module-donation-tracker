@@ -15,10 +15,12 @@ Hooks.once('ready', async () => {
 		return;
 	} else if (!(await API.checkService())) {
 		console.log(
-			`%cDonation-Tracker %c| Service is offline, module disabled`,
+			`%cDonation-Tracker %c| Service is offline, nobody has a membership until it is back`,
 			'color:red;font-weight:bold',
 			''
 		);
+		// Still provide the API (and its ready hook) so modules relying on it keep working.
+		game.membership = new MembershipAPI();
 		return;
 	}
 	createButton(ui.sidebar.tabs.settings!.element);

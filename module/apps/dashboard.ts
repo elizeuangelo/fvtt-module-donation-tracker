@@ -1,8 +1,8 @@
 import * as API from '../api.js';
 import { getTokenInformation } from '../api.js';
-import { AdminMember, calcMembershipLevel, getMembersData } from '../membership.js';
+import { AdminMember, calcMembershipLevel, getMembersData, Rates } from '../membership.js';
 import { getSetting, MODULE_ID, PATH, setSetting } from '../settings.js';
-import { parseCSV, parseTime, readFile, sleep } from '../utils.js';
+import { parseCSV, parseTime, parseUtcDate, readFile, toDatetimeLocal } from '../utils.js';
 import { CURRENCIES, DTConfig } from './config.js';
 
 export class Dashboard extends Application {
@@ -25,15 +25,43 @@ export class Dashboard extends Application {
 	users!: Awaited<ReturnType<typeof API.getUsers>>;
 	members!: Record<string, AdminMember>;
 	donations!: API.AdminDonations;
-	rates!: Awaited<ReturnType<typeof API.rates>>;
+	rates!: Rates;
 
-	async refreshData(target?: HTMLElement) {
+	async refreshData(target?: HTMLElement, force = false) {
 		if (target) target.querySelector('i')?.classList.add('fa-spin');
-		await game.membership.refresh();
-		this.users = game.membership.cache.users!;
-		this.donations = game.membership.cache.donations as API.AdminDonations;
-		this.rates = game.membership.cache.rates!;
+		await game.membership.refresh(force);
+		const baseCurrency = getSetting('membershipLevels').baseCurrency;
+		this.users = game.membership.cache.users ?? [];
+		this.donations = (game.membership.cache.donations as API.AdminDonations | null) ?? { manual: {}, kofi: {} };
+		// Without exchange rates only donations in the base currency can be counted.
+		this.rates = game.membership.cache.rates ?? {
+			success: false,
+			timestamp: 0,
+			base: baseCurrency,
+			date: '',
+			rates: { [baseCurrency]: 1 },
+		};
 		if (target) target.querySelector('i')?.classList.remove('fa-spin');
+	}
+
+	/**
+	 * Loads the data again from the server and redraws, so the tables show what is stored.
+	 */
+	async reload() {
+		await this.refreshData(undefined, true);
+		this.render();
+	}
+
+	findManualDonation(id: string) {
+		return Object.values(this.donations.manual)
+			.flatMap((donor) => donor.donations)
+			.find((donation) => donation.id === id);
+	}
+
+	findKofiDonation(transactionId: string) {
+		return Object.values(this.donations.kofi)
+			.flatMap((donor) => donor.donations)
+			.find((donation) => donation.kofi_transaction_id === transactionId);
 	}
 
 	viewMember(el: HTMLElement) {
@@ -105,7 +133,7 @@ export class Dashboard extends Application {
 			| undefined
 			| null
 			| { exp: number; membership: string };
-		const date = current?.exp ? new Date(current.exp).toISOString().slice(0, 16) : '';
+		const date = current?.exp ? toDatetimeLocal(current.exp) : '';
 		const membership = getSetting('membershipLevels').levels.map((m) => ({
 			name: m.name,
 			id: m.id,
@@ -213,7 +241,7 @@ export class Dashboard extends Application {
 					...entry,
 					currency: CURRENCIES,
 					selected: entry.currency,
-					timestamp: new Date(entry.timestamp).toISOString().slice(0, 16),
+					timestamp: toDatetimeLocal(entry.timestamp),
 				},
 				{
 					allowProtoMethodsByDefault: true,
@@ -238,56 +266,34 @@ export class Dashboard extends Application {
 							throw new Error('Invalid form');
 						}
 						entry.timestamp = new Date(data.get('timestamp') as string).getTime();
-						entry.email = data.get('email') as string;
+						entry.email = (data.get('email') as string).trim().toLowerCase();
 						entry.currency = data.get('currency') as string;
 						entry.amount = (+(data.get('amount') as string)).toFixed(2);
 						entry.comment = data.get('comment') as string;
 
-						const entryData = {
+						const entryData: API.Donation = {
 							id: entry.id,
 							timestamp: entry.timestamp,
 							email: entry.email,
 							currency: entry.currency,
 							amount: entry.amount,
 							comment: entry.comment,
-							last_modified_at: Date.now(),
-							last_modified_by: API.getTokenInformation()!.name!,
 						};
 
-						(entry.new ? API.addDonations([entryData]) : API.modifyDonations([entryData])).then((res) => {
-							if (res[0] === false) {
-								ui.notifications.error(`Failed to ${entry.new ? 'create' : 'update'} donation entry`);
-								return;
-							}
-
-							const entryId = entry.id || '_anonymous';
-
-							if (entry.new) {
-								this.donations.manual[entry.email] ??= {
-									id: entryId,
-									email: entry.email,
-									donations: [],
-								};
-								this.donations.manual[entry.email].donations.push(entryData);
-							} else {
-								const realEntry = this.donations.manual[entry.email].donations.find(
-									(e) => e.id === entry.id,
-								)!;
-								if (
-									entry.timestamp === realEntry.timestamp &&
-									entry.email === realEntry.email &&
-									entry.comment === realEntry.comment &&
-									entry.currency === realEntry.currency &&
-									entry.amount === realEntry.amount
-								)
+						const action = entry.new ? 'create' : 'update';
+						(entry.new
+							? API.addDonations([entryData]).then((added) => added[0] === true)
+							: API.modifyDonations([entryData]).then((changed) => changed.length > 0)
+						)
+							.then(async (saved) => {
+								if (!saved) {
+									ui.notifications.error(`Failed to ${action} donation entry`);
 									return;
-								Object.assign(realEntry, entryData);
-							}
-
-							ui.notifications.info(`Donation ${entry.new ? 'created' : 'modified'}`);
-
-							this.render();
-						});
+								}
+								ui.notifications.info(`Donation ${entry.new ? 'created' : 'modified'}`);
+								await this.reload();
+							})
+							.catch(() => ui.notifications.error(`Failed to ${action} donation entry`));
 					},
 				},
 			},
@@ -295,106 +301,45 @@ export class Dashboard extends Application {
 	}
 
 	async modifyDonation(el: HTMLElement) {
-		const { id, email } = el.parentElement!.dataset as { email: string; id: string };
-		const entry = this.donations.manual[email].donations.find((d) => d.id === id)!;
+		const { id } = el.parentElement!.dataset as { id: string };
+		const entry = this.findManualDonation(id);
+		if (!entry) return ui.notifications.error('Donation not found, please refresh the dashboard');
 		return this.addDonation(el, { ...entry, new: false });
 	}
 
 	async refundDonation(el: HTMLElement) {
-		const { id, email, type } = el.parentElement!.dataset as { email: string; id: string; type: string };
-		const entry =
-			type === 'manual'
-				? this.donations.manual[email]?.donations.find((d) => d.id === id)!
-				: this.donations.kofi[email]?.donations.find((d) => d.kofi_transaction_id === id)!;
+		const { id, type } = el.parentElement!.dataset as { id: string; type: string };
+		const entry = type === 'manual' ? this.findManualDonation(id) : this.findKofiDonation(id);
+		if (!entry) return ui.notifications.error('Donation not found, please refresh the dashboard');
 
 		return this.addDonation(el, {
-			...entry,
 			new: true,
-			amount: (+entry.amount * -1).toFixed(2),
 			id: randomID(),
 			timestamp: Date.now(),
+			email: entry.email,
+			currency: entry.currency,
+			amount: (+entry.amount * -1).toFixed(2),
 			comment: `Refunded: ${new Date(entry.timestamp).toISOString().slice(0, 16)}`,
 		});
 	}
 
 	async removeDonation(el: HTMLElement) {
-		const { id, email } = el.parentElement!.dataset as { email: string; id: string };
-		const entry = this.donations.manual[email].donations.find((d) => d.id === id)!;
+		const { id } = el.parentElement!.dataset as { id: string };
+		const entry = this.findManualDonation(id);
+		if (!entry) return ui.notifications.error('Donation not found, please refresh the dashboard');
+		const escape = Handlebars.escapeExpression;
 		const confirm = await Dialog.confirm({
 			title: 'Confirm Deletion',
-			content: `<p style="text-align:center">Are you sure you want to delete the donation of <b>${entry.amount} ${entry.currency}</b> from <b>${email}</b>?</p>`,
+			content: `<p style="text-align:center">Are you sure you want to delete the donation of <b>${escape(entry.amount)} ${escape(entry.currency)}</b> from <b>${escape(entry.email || '<anonymous>')}</b>?</p>`,
 		});
 		if (!confirm) return;
-		const [success] = await API.deleteDonations([id]);
-		if (success) {
-			const idx = this.donations.manual[email].donations.indexOf(entry);
-			this.donations.manual[email].donations.splice(idx, 1);
-			this.render();
+		try {
+			const [success] = await API.deleteDonations([id]);
+			if (!success) ui.notifications.error('The donation was already removed');
+		} catch {
+			ui.notifications.error('Failed to delete the donation');
 		}
-	}
-
-	async uploadConfig() {
-		const confirm = await Dialog.confirm({
-			title: 'Confirm Configuration Upload',
-			content: `<p style="text-align:center">Are you sure you to upload a new configuration file?</p>
-                    <p style="text-align:center">A bad configuration might crash the server or cause instabilities.</p>`,
-			defaultYes: false,
-		});
-		if (!confirm) return;
-
-		const data = await readFile();
-		if (typeof data?.data !== 'string') {
-			ui.notifications.error('Bad configuration file');
-			return;
-		}
-		const res = await API.serverConfig(data.data);
-		if (!res.ok) {
-			ui.notifications.info('Some issue happened while uploading the configuration file');
-			return;
-		}
-		ui.notifications.info(`File uploaded with success: ${data.file.name}`);
-	}
-
-	async restartServer() {
-		const confirm = await Dialog.confirm({
-			title: 'Confirm Server Restart',
-			content: `<p style="text-align:center">Are you sure you want to restart the server?</p>`,
-			defaultYes: false,
-		});
-		if (!confirm) return;
-		const restarting = (await API.serverRestart()) === 'true';
-		if (!restarting) {
-			ui.notifications.error('Server failed to restart');
-			return;
-		}
-		ui.notifications.info('Server is restarting... please wait');
-		await sleep(7000);
-		const check = await API.checkService();
-		if (check) ui.notifications.info('Server successfully restarted');
-		return check;
-	}
-
-	async updateServer() {
-		const { current, update } = await API.serverVersion();
-
-		const confirm = await Dialog.confirm({
-			title: 'Confirm Server Update',
-			content: `<p style="text-align:center">Update from <b>${current}</b> to <b>${update}</b>?</p>`,
-			defaultYes: false,
-		});
-		if (!confirm) return;
-		const res = await API.serverUpdate();
-		if (!res.ok) {
-			let msg = 'Some issue happened while updating';
-			if (res.status === 423) msg = 'Server is already updating, please wait';
-			ui.notifications.info(msg);
-			return;
-		}
-		ui.notifications.info('Server is restarting... please wait');
-		await sleep(7000);
-		const check = await API.checkService();
-		if (check) ui.notifications.info('Server successfully restarted');
-		return check;
+		await this.reload();
 	}
 
 	async importKofiCSV() {
@@ -411,28 +356,18 @@ export class Dashboard extends Application {
 			];
 			return target.every((v) => headers.includes(v));
 		}
-		const isDuplicate = (donation: API.Donation) => {
-			const entry = donation.email;
-			const similarKofi = this.donations.kofi[entry]?.donations.find((d) => {
-				const timeDiff = Math.abs(donation.timestamp - d.timestamp);
-				return (
-					timeDiff < 43_200_000 &&
+		const existing = [...Object.values(this.donations.kofi), ...Object.values(this.donations.manual)].flatMap(
+			(donor) => donor.donations as (API.KofiOperation | API.ManualOperation)[],
+		);
+		// Same donor, amount and currency within twelve hours of a donation already on record.
+		const isDuplicate = (donation: API.Donation) =>
+			existing.some(
+				(d) =>
+					Math.abs(donation.timestamp - d.timestamp) < 43_200_000 &&
 					donation.email === d.email &&
-					d.amount === donation.amount &&
-					d.currency === donation.currency
-				);
-			});
-			const similarManual = this.donations.manual[entry]?.donations.find((d) => {
-				const timeDiff = Math.abs(donation.timestamp - d.timestamp);
-				return (
-					timeDiff < 43_200_000 &&
-					donation.email === d.email &&
-					d.amount === donation.amount &&
-					d.currency === donation.currency
-				);
-			});
-			return Boolean(similarKofi || similarManual);
-		};
+					+d.amount === +donation.amount &&
+					d.currency === donation.currency,
+			);
 		function previewTable(donations: API.Donation[]) {
 			return Dialog.prompt({
 				title: 'Import Preview',
@@ -476,7 +411,7 @@ export class Dashboard extends Application {
 				}),
 				label: 'Add Donations',
 				rejectClose: false,
-				callback: (html) => [...html.find('input[checked]')].map((i) => +i.dataset.entry!),
+				callback: (html) => [...html.find('input:checked')].map((i) => +i.dataset.entry!),
 			});
 		}
 		const data = await readFile();
@@ -489,45 +424,36 @@ export class Dashboard extends Application {
 			ui.notifications.error('The CSV does not match a Kofi Payment CSV');
 			return;
 		}
-		const additions: API.Donation[] = [];
-		additions.push(
-			...rows
-				.filter((row) => +row['Received'] > 0)
-				.map((d) => ({
-					id: randomID(),
-					timestamp: new Date(d['DateTime (UTC)']).getTime(),
-					email: d['BuyerEmail'],
-					currency: d['Currency'],
-					amount: d['Received'],
-					comment: `${d.TransactionType}${d.Item ? ` (${d.Item})` : ''}${'From' in d ? ` [${d.From}]` : ''}${
-						'Message' in d ? `: ${d.Message}` : ''
-					}`,
-				}))
-				.sort((a, b) => b.timestamp - a.timestamp),
-		);
+		const additions: API.Donation[] = rows
+			.filter((row) => +row['Received'] > 0)
+			.map((d) => ({
+				id: randomID(),
+				// The export gives the time in UTC, without saying so in the value itself.
+				timestamp: parseUtcDate(d['DateTime (UTC)']),
+				email: d['BuyerEmail'].trim().toLowerCase(),
+				currency: d['Currency'].trim().toUpperCase(),
+				amount: d['Received'],
+				comment: `${d.TransactionType}${d.Item ? ` (${d.Item})` : ''}${d.From ? ` [${d.From}]` : ''}${
+					d.Message ? `: ${d.Message}` : ''
+				}`,
+			}))
+			.filter((d) => Number.isFinite(d.timestamp))
+			.sort((a, b) => b.timestamp - a.timestamp);
 		const include = await previewTable(additions);
 		if (!include || include.length === 0) return;
 		const add = include.map((i) => additions[i]);
-		const res = await API.addDonations(add);
-		const conclusion = add.filter((e, idx) => res[idx]);
+		let res: boolean[];
+		try {
+			res = await API.addDonations(add);
+		} catch {
+			ui.notifications.error('Failed to import the donations');
+			return;
+		}
+		const conclusion = add.filter((_e, idx) => res[idx]);
 
-		conclusion.forEach((entry) => {
-			const entryId = entry.email || '_anonymous';
-			const entryData: API.ManualOperation = {
-				...entry,
-				last_modified_at: Date.now(),
-				last_modified_by: API.getTokenInformation()!.name!,
-			};
-			const userId =
-				Object.values(game.membership.cache.users!).find((member) => member.email === entry.email)?.id ??
-				'_anonymous';
-			this.donations.manual[entryId] ??= { id: userId, email: entry.email, donations: [] };
-			this.donations.manual[entryId].donations.push(entryData);
-		});
-
-		ui.notifications.info(`${res.filter(Boolean).length} donations created`);
-		this.render();
-		return add.filter((e, idx) => res[idx]);
+		ui.notifications.info(`${conclusion.length} donations created`);
+		await this.reload();
+		return conclusion;
 	}
 
 	// ------------------------------------- //
@@ -539,7 +465,7 @@ export class Dashboard extends Application {
 			class: 'refresh',
 			icon: 'fas fa-refresh',
 			onclick: async (ev) => {
-				await this.refreshData(ev.currentTarget as HTMLElement);
+				await this.refreshData(ev.currentTarget as HTMLElement, true);
 				this.render();
 			},
 		});
@@ -561,9 +487,6 @@ export class Dashboard extends Application {
 			'modify-donation': this.modifyDonation,
 			'refund-donation': this.refundDonation,
 			'remove-donation': this.removeDonation,
-			'upload-config': this.uploadConfig,
-			restart: this.restartServer,
-			update: this.updateServer,
 			'import-kofi': this.importKofiCSV,
 		};
 		html.find('[data-action]').each((idx, el) =>
@@ -655,7 +578,6 @@ export class Dashboard extends Application {
 		return {
 			members,
 			donations,
-			admin: info.perms!.includes('admin'),
 			period: membershipLevels.period,
 			summary: {
 				membersTotal: members.length,

@@ -51,28 +51,81 @@ export async function readFile(): Promise<FileResult | null> {
 }
 
 /**
- * Sleep for the set miliseconds
- * @param ms miliseconds
- * @returns
+ * Reads a timestamp that is known to be in UTC but carries no time zone, such as the
+ * `DateTime (UTC)` column of a Ko-fi export (`09/13/2020 16:55`).
+ * @param text date and time
+ * @returns milliseconds since the epoch, or NaN when the text is not a date
  */
-export function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
+export function parseUtcDate(text: string): number {
+	text = text.trim();
+	const kofi = /^(\d{1,2})\/(\d{1,2})\/(\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(text);
+	if (kofi) {
+		const [month, day, year, hour, minute, second] = kofi.slice(1).map((part) => Number(part ?? 0));
+		return Date.UTC(year, month - 1, day, hour, minute, second);
+	}
+	const parsed = new Date(text).getTime();
+	const alreadyUtc =
+		/^\d{4}-\d{2}-\d{2}$/.test(text) || /\d{2}:\d{2}(:\d{2}(\.\d+)?)?\s*(z|utc|gmt|[+-]\d{2}:?\d{2})$/i.test(text);
+	if (Number.isNaN(parsed) || alreadyUtc) return parsed;
+	// The text was read as local time: move it back by the local offset.
+	return parsed - new Date(parsed).getTimezoneOffset() * 60_000;
 }
 
 /**
- * Parses an standard CSV file
+ * Formats a timestamp for an `<input type="datetime-local">`, which shows and reads local time.
+ * @param timestamp milliseconds since the epoch
+ */
+export function toDatetimeLocal(timestamp: number): string {
+	const date = new Date(timestamp);
+	return new Date(timestamp - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
+
+/**
+ * Parses a CSV file: quoted fields may contain delimiters, line breaks and doubled quotes.
  * @param str text
  * @param delimiter csv delimiter
- * @returns
+ * @returns the header names and one record per data line, keyed by header
  */
 export function parseCSV(str: string, delimiter = ',') {
-	const rgx = new RegExp(`"(.*?)"${delimiter}?|^(.*?)${delimiter}|(.+)$`, 'g');
-	const data = str.split(/(?:\r)?\n/);
-	if (data.at(-1) === '') data.pop();
-	const headers = [...data[0].matchAll(rgx)].map((r) => r[1] ?? r[2] ?? r[3]);
-	const rows = data
-		.slice(1)
-		.map((r) => Object.fromEntries([...r.matchAll(rgx)].map((r, idx) => [headers[idx], r[1] ?? r[2] ?? r[3]])));
+	const text = str.replace(/^\uFEFF/, '');
+	const table: string[][] = [];
+	let row: string[] = [];
+	let field = '';
+	let quoted = false;
+	for (let i = 0; i < text.length; i++) {
+		const char = text[i];
+		if (quoted) {
+			if (char !== '"') field += char;
+			else if (text[i + 1] === '"') {
+				field += '"';
+				i++;
+			} else quoted = false;
+		} else if (char === '"' && field === '') {
+			quoted = true;
+		} else if (char === delimiter) {
+			row.push(field);
+			field = '';
+		} else if (char === '\n' || char === '\r') {
+			if (char === '\r' && text[i + 1] === '\n') i++;
+			row.push(field);
+			table.push(row);
+			row = [];
+			field = '';
+		} else {
+			field += char;
+		}
+	}
+	if (field !== '' || row.length > 0) {
+		row.push(field);
+		table.push(row);
+	}
+
+	const [headers = [], ...lines] = table;
+	const rows = lines
+		.filter((line) => line.some((value) => value !== ''))
+		.map(
+			(line) => Object.fromEntries(headers.map((header, idx) => [header, line[idx] ?? ''])) as Record<string, string>,
+		);
 
 	return { headers, rows };
 }
