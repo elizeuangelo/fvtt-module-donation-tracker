@@ -240,9 +240,12 @@ export class DTConfig extends FormApplication<any> {
 			defaultYes: false,
 		});
 		if (confirm) {
-			setSetting('membershipLevels', this.preview);
+			// Wait for the setting to be stored, so the dashboard reads the new currency and period.
+			await setSetting('membershipLevels', this.preview);
 			ui.notifications.info('Membership table updated');
-			new Dashboard().render(true);
+			const open = Object.values(ui.windows).find((app) => app instanceof Dashboard);
+			if (open) open.render();
+			else new Dashboard().render(true);
 		}
 	}
 }

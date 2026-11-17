@@ -79,6 +79,22 @@
 	background-color: rgba(255, 255, 0, 0.1);
 }
 
+.donation-tracker tr.partially-refunded {
+	background-color: rgba(255, 255, 0, 0.05);
+}
+
+.donation-tracker tr.uncounted td {
+	opacity: 0.6;
+}
+
+.donation-tracker .summary.notes {
+	font-size: var(--font-size-12, 12px);
+}
+
+.donation-tracker .summary .warning {
+	color: var(--color-level-warning, #ee9b3a);
+}
+
 .donation-tracker tr.special-member {
 	background-color: rgba(150, 150, 255, 0.2);
 }

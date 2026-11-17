@@ -48,18 +48,62 @@ export interface AdminMember {
 }
 
 /**
+ * Rates already expressed against a base currency, by the rates they were made from.
  * @hidden
  */
-function convertRates(data: Rates, to: string) {
-	const baseRate = data.rates[to];
-	const rates = { ...data.rates };
+const ratesByBase = new WeakMap<Rates, Map<string, Rates>>();
 
-	rates[data.base] = 1;
+/**
+ * Rates that can only convert amounts already in `base`, for when no usable exchange rates exist.
+ * @hidden
+ */
+function baseOnlyRates(base: string, data?: Rates | null): Rates {
+	return { success: false, timestamp: data?.timestamp ?? 0, base, date: data?.date ?? '', rates: { [base]: 1 } };
+}
 
-	Object.entries(rates).forEach(([k]) => (rates[k] /= baseRate));
+/**
+ * Returns the exchange rates expressed against `base`: an amount in currency `C` is worth
+ * `amount / rates[C]` in `base`. The given rates are left unchanged, since they are shared.
+ * Without usable rates, or without a rate for `base`, only amounts in `base` can be converted.
+ * @hidden
+ */
+export function ratesForBase(data: Rates | null | undefined, base: string): Rates {
+	if (!data || !data.rates || typeof data.rates !== 'object') return baseOnlyRates(base, data);
+	let cache = ratesByBase.get(data);
+	const cached = cache?.get(base);
+	if (cached) return cached;
 
-	data.base = to;
-	data.rates = rates;
+	const all: Record<string, number> = { ...data.rates };
+	if (data.base) all[data.base] = 1;
+	const baseRate = all[base];
+	let converted: Rates;
+	if (!(baseRate > 0 && Number.isFinite(baseRate))) {
+		console.warn(`Donation-Tracker | No exchange rate for ${base}, only donations in ${base} are counted`);
+		converted = baseOnlyRates(base, data);
+	} else {
+		const rates = Object.fromEntries(
+			Object.entries(all)
+				.filter(([, rate]) => rate > 0 && Number.isFinite(rate))
+				.map(([currency, rate]) => [currency, rate / baseRate]),
+		);
+		converted = { ...data, base, rates };
+	}
+
+	if (!cache) ratesByBase.set(data, (cache = new Map()));
+	cache.set(base, converted);
+	ratesByBase.set(converted, new Map([[base, converted]]));
+	return converted;
+}
+
+/**
+ * Converts a donation amount with rates from {@link ratesForBase}.
+ * @returns the amount in the base currency, or null when its currency has no known rate
+ * @hidden
+ */
+export function convertAmount(entry: { amount: string; currency: string }, rates: Record<string, number>) {
+	if (!Object.prototype.hasOwnProperty.call(rates, entry.currency)) return null;
+	const value = +entry.amount / rates[entry.currency];
+	return Number.isFinite(value) ? value : null;
 }
 
 /**
@@ -123,7 +167,8 @@ export function calcMembershipLevel(
 	rates: Rates | null,
 	membershipLevels = getSetting('membershipLevels'),
 ) {
-	if (rates && rates.base !== membershipLevels.baseCurrency) convertRates(rates, membershipLevels.baseCurrency);
+	// Without exchange rates only donations in the base currency can be counted.
+	const table = ratesForBase(rates, membershipLevels.baseCurrency).rates;
 
 	const period = parseTime(membershipLevels.period);
 	if (!period) throw new Error('Bad membership period');
@@ -145,17 +190,15 @@ export function calcMembershipLevel(
 		membershipValue = newMembership;
 	};
 
-	if (rates) {
-		[...data.kofi, ...data.manual].forEach((entry) => {
-			// A donation in a currency without a known rate cannot be converted; counting it
-			// would turn the whole total into NaN.
-			const value = +entry.amount / rates.rates[entry.currency];
-			if (!Number.isFinite(value)) return;
-			donatedAll += value;
-			if (entry.timestamp < since) return;
-			donated += value;
-		});
-	}
+	[...data.kofi, ...data.manual].forEach((entry) => {
+		// A donation in a currency without a known rate cannot be converted; counting it
+		// would turn the whole total into NaN.
+		const value = convertAmount(entry, table);
+		if (value === null) return;
+		donatedAll += value;
+		if (entry.timestamp <= since) return;
+		donated += value;
+	});
 
 	if (user?.isGM && membershipLevels.gmLevel) {
 		upgradeMembership(membershipLevels.gmLevel);

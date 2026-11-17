@@ -22,7 +22,7 @@
                 </thead>
                 <tbody style="text-align: center">
                     {{#each members}}
-                    <tr {{#if special_membership}}class="special-member"{{/if}} data-timestamp="{{last_login}}" data-table-amount="{{tableAmount}}">
+                    <tr {{#if special_membership}}class="special-member"{{/if}} data-timestamp="{{last_login_value}}" data-table-amount="{{tableAmount}}">
                         <td>{{last_login}}</td>
                         <td title="{{name}}" style="font-weight:bold">{{name}}</td>
                         <td title="{{email}}">{{email}}</td>
@@ -88,19 +88,22 @@
                 </thead>
                 <tbody style="text-align: center">
                     {{#each donations}}
-                    <tr {{#if (lt amount_value 0)}}class="refund"{{/if}}
-                        {{#if is_refunded}}class="refunded"{{/if}}
-                        data-timestamp="{{timestamp}}"
-                        data-table-amount="{{table_amount_value}}">
+                    <tr class="{{row_class}}" {{#if row_title}}title="{{row_title}}"{{/if}}
+                        data-timestamp="{{timestamp_value}}"
+                        data-table-amount="{{table_amount_value}}"
+                        data-counted="{{counted}}">
                         <td>{{timestamp}}</td>
                         <td style="font-weight:bold;" title="{{email}}">{{#if anonymous}}&lt;anonymous&gt;{{else}}{{email}}{{/if}}</td>
-                        <td>{{amount}}</td>
+                        <td>
+                            {{amount}}
+                            {{#unless counted}}<i class="fas fa-triangle-exclamation" title="No exchange rate for {{currency}}: not counted in the totals"></i>{{/unless}}
+                        </td>
                         <td>{{currency}}</td>
                         <td>{{source}}</td>
                         <td style="display:block;max-width:200px;" title="{{comment}}">{{comment}}</td>
                         <td>{{last_modified_at}}</td>
                         <td>{{last_modified_by}}</td>
-                        <td data-email="{{email}}" data-id="{{id}}" data-type="{{type}}">
+                        <td data-email="{{email}}" data-id="{{id}}" data-type="{{type}}" data-remaining="{{remaining_text}}">
                             {{#if mutate}}
                                 {{#if can_refund}}<a title="Refund" class="fa fa-left" data-action="refund-donation"></a>{{/if}}
                                 {{#if can_modify}}
@@ -136,6 +139,16 @@
             <span>Donations ({{period}}): <b>{{summary.donationsLastPeriod}} ({{summary.donationsLastPeriodLength}})</b></span>
             <span>Donations total: <b>{{summary.donationsTotal}} ({{summary.donationsLength}})</b></span>
             <span>Donations (table): <b data-table-total></b></span>
+        </div>
+        <div class="summary notes">
+            {{#if summary.ratesAvailable}}
+            <span>Totals in {{summary.baseCurrency}}, refunds deducted{{#if summary.ratesDate}}. Exchange rates from {{summary.ratesDate}}{{/if}}</span>
+            {{else}}
+            <span class="warning"><i class="fas fa-triangle-exclamation"></i> Exchange rates unavailable: only donations in {{summary.baseCurrency}} are counted</span>
+            {{/if}}
+            {{#if summary.uncountedLength}}
+            <span class="warning"><i class="fas fa-triangle-exclamation"></i> {{summary.uncountedLength}} donations not counted, no exchange rate for: {{summary.uncountedCurrencies}}</span>
+            {{/if}}
         </div>
         <div class="footer-buttons">
             <button type="button" data-action="import-kofi"><i class="far fa-table"></i> Import Kofi CSV</button>

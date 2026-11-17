@@ -1,6 +1,13 @@
 import * as API from '../api.js';
 import { getTokenInformation } from '../api.js';
-import { AdminMember, calcMembershipLevel, getMembersData, Rates } from '../membership.js';
+import {
+	AdminMember,
+	calcMembershipLevel,
+	convertAmount,
+	getMembersData,
+	Rates,
+	ratesForBase,
+} from '../membership.js';
 import { getSetting, MODULE_ID, PATH, setSetting } from '../settings.js';
 import { parseCSV, parseTime, parseUtcDate, readFile, toDatetimeLocal } from '../utils.js';
 import { CURRENCIES, DTConfig } from './config.js';
@@ -25,22 +32,17 @@ export class Dashboard extends Application {
 	users!: Awaited<ReturnType<typeof API.getUsers>>;
 	members!: Record<string, AdminMember>;
 	donations!: API.AdminDonations;
-	rates!: Rates;
+	/** Exchange rates as loaded from the server, in the server's own base currency. */
+	rates!: Rates | null;
+	#loaded = false;
 
 	async refreshData(target?: HTMLElement, force = false) {
 		if (target) target.querySelector('i')?.classList.add('fa-spin');
 		await game.membership.refresh(force);
-		const baseCurrency = getSetting('membershipLevels').baseCurrency;
 		this.users = game.membership.cache.users ?? [];
 		this.donations = (game.membership.cache.donations as API.AdminDonations | null) ?? { manual: {}, kofi: {} };
-		// Without exchange rates only donations in the base currency can be counted.
-		this.rates = game.membership.cache.rates ?? {
-			success: false,
-			timestamp: 0,
-			base: baseCurrency,
-			date: '',
-			rates: { [baseCurrency]: 1 },
-		};
+		this.rates = game.membership.cache.rates;
+		this.#loaded = true;
 		if (target) target.querySelector('i')?.classList.remove('fa-spin');
 	}
 
@@ -239,7 +241,10 @@ export class Dashboard extends Application {
             `)(
 				{
 					...entry,
-					currency: CURRENCIES,
+					// A donation imported in another currency must keep it when edited or refunded.
+					currency: CURRENCIES.some((c) => c.id === entry.currency)
+						? CURRENCIES
+						: [...CURRENCIES, { id: entry.currency, name: entry.currency }],
 					selected: entry.currency,
 					timestamp: toDatetimeLocal(entry.timestamp),
 				},
@@ -308,9 +313,12 @@ export class Dashboard extends Application {
 	}
 
 	async refundDonation(el: HTMLElement) {
-		const { id, type } = el.parentElement!.dataset as { id: string; type: string };
+		const { id, type, remaining } = el.parentElement!.dataset as { id: string; type: string; remaining?: string };
 		const entry = type === 'manual' ? this.findManualDonation(id) : this.findKofiDonation(id);
 		if (!entry) return ui.notifications.error('Donation not found, please refresh the dashboard');
+		// After a partial refund, only what is left can be refunded.
+		const left = Number(remaining);
+		const amount = Number.isFinite(left) && left > 0 ? left : +entry.amount;
 
 		return this.addDonation(el, {
 			new: true,
@@ -318,7 +326,7 @@ export class Dashboard extends Application {
 			timestamp: Date.now(),
 			email: entry.email,
 			currency: entry.currency,
-			amount: (+entry.amount * -1).toFixed(2),
+			amount: (-amount).toFixed(2),
 			comment: `Refunded: ${new Date(entry.timestamp).toISOString().slice(0, 16)}`,
 		});
 	}
@@ -496,13 +504,23 @@ export class Dashboard extends Application {
 	}
 
 	override async getData() {
-		if (!this.members || !this.rates) await this.refreshData();
+		if (!this.#loaded) await this.refreshData();
 		const membershipLevels = getSetting('membershipLevels');
+		const baseCurrency = membershipLevels.baseCurrency;
+		// Converted on every render, so a change of base currency shows without reloading.
+		const rates = ratesForBase(this.rates, baseCurrency);
+		const ratesAvailable = Object.keys(rates.rates).length > 1;
+		const formatMoney = (value: number) =>
+			value.toLocaleString('en-US', { style: 'currency', currency: baseCurrency });
 		this.members = getMembersData(this.donations, this.users, 'email') as Record<string, AdminMember>;
 
 		const members = Object.values(this.members)
 			.map((data) => {
-				const membership = calcMembershipLevel(data, this.rates, membershipLevels);
+				const membership = calcMembershipLevel(data, rates, membershipLevels);
+				const special = game.users.get(data.id ?? '')?.getFlag(MODULE_ID, 'special-membership') as
+					| undefined
+					| null
+					| { exp: number; membership: string };
 				return {
 					id: data.id,
 					name: data.user?.name ?? '<unknown>',
@@ -510,19 +528,13 @@ export class Dashboard extends Application {
 					last_login_value: data.last_login,
 					email: data.email,
 					membership: membership.membership?.name ?? '<None>',
-					special_membership:
-						Boolean(game.users.get(data.id ?? '')?.getFlag(MODULE_ID, 'special-membership')) ?? false,
+					// An expired special membership no longer applies, so it is not highlighted.
+					special_membership: Boolean(special && special.exp > Date.now()),
 					donated: membership.donated,
 					donatedAll: membership.donatedAll,
 					tableAmount: membership.donated,
-					donatedParsed: membership.donated.toLocaleString('en-US', {
-						style: 'currency',
-						currency: membershipLevels.baseCurrency,
-					}),
-					donatedAllParsed: membership.donatedAll.toLocaleString('en-US', {
-						style: 'currency',
-						currency: membershipLevels.baseCurrency,
-					}),
+					donatedParsed: formatMoney(membership.donated),
+					donatedAllParsed: formatMoney(membership.donatedAll),
 					temporaryMembership: membership.temporary,
 				};
 			})
@@ -536,44 +548,91 @@ export class Dashboard extends Application {
 			.map((d) => d.donations)
 			.flat()
 			.sort((a, b) => b.timestamp - a.timestamp)
-			.map((d) => ({
-				in_period: d.timestamp > since,
-				timestamp: new Date(d.timestamp).toISOString().slice(0, 16),
-				email: d.email || '_anonymous',
-				anonymous: !Boolean(d.email),
-				amount: d.amount,
-				amount_value: +d.amount,
-				table_amount_value: d.currency in this.rates.rates ? +d.amount / this.rates.rates[d.currency] : 0,
-				can_refund: +d.amount > 0,
-				is_refunded: false,
-				currency: d.currency,
-				source: 'kofi_transaction_id' in d ? 'Kofi Webhook' : 'Manual',
-				comment:
-					'comment' in d
-						? d.comment
-						: `${d.type}${d.tier_name ? ` (${d.tier_name})` : ''}${d.message ? `: ${d.message}` : ''}`,
-				last_modified_at:
-					'last_modified_at' in d ? new Date(d.last_modified_at).toISOString().slice(0, 16) : '-',
-				last_modified_by: 'last_modified_by' in d ? d.last_modified_by : '-',
-				mutate: canMutate,
-				can_modify: 'last_modified_by' in d && canMutate,
-				id: 'id' in d ? d.id : d.kofi_transaction_id,
-				type: 'id' in d ? 'manual' : 'kofi',
-			}));
+			.map((d) => {
+				const value = convertAmount(d, rates.rates);
+				return {
+					in_period: d.timestamp > since,
+					timestamp: new Date(d.timestamp).toISOString().slice(0, 16),
+					timestamp_value: d.timestamp,
+					email: d.email || '_anonymous',
+					anonymous: !Boolean(d.email),
+					amount: d.amount,
+					amount_value: +d.amount,
+					// Donations in a currency without a known rate are left out of every total.
+					table_amount_value: value ?? 0,
+					counted: value !== null,
+					remaining: +d.amount,
+					remaining_text: '',
+					can_refund: +d.amount > 0,
+					is_refunded: false,
+					row_class: '',
+					row_title: '',
+					currency: d.currency,
+					source: 'kofi_transaction_id' in d ? 'Kofi Webhook' : 'Manual',
+					comment:
+						'comment' in d
+							? d.comment
+							: `${d.type}${d.tier_name ? ` (${d.tier_name})` : ''}${d.message ? `: ${d.message}` : ''}`,
+					last_modified_at:
+						'last_modified_at' in d ? new Date(d.last_modified_at).toISOString().slice(0, 16) : '-',
+					last_modified_by: 'last_modified_by' in d ? d.last_modified_by : '-',
+					mutate: canMutate,
+					can_modify: 'last_modified_by' in d && canMutate,
+					id: 'id' in d ? d.id : d.kofi_transaction_id,
+					type: 'id' in d ? 'manual' : 'kofi',
+				};
+			});
 
-		//Refunded: 2023-08-22T13:05
+		// A refund names the donation it refunds by the minute it was made, in UTC, as in
+		// "Refunded: 2023-08-22T13:05". It also has the same donor and currency, and an amount
+		// up to what is left of that donation.
+		const cents = (value: number) => Math.round(value * 100);
 		const rgx = /Refunded: ([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2})/;
+		donations
+			.filter((refund) => refund.amount_value < 0)
+			.forEach((refund) => {
+				const match = refund.comment.match(rgx);
+				if (!match) return;
+				const candidates = donations.filter(
+					(d) =>
+						d.amount_value > 0 &&
+						d.timestamp === match[1] &&
+						d.email.toLowerCase() === refund.email.toLowerCase() &&
+						d.currency === refund.currency &&
+						cents(d.remaining) > 0,
+				);
+				const refunded =
+					candidates.find((d) => cents(d.remaining) === cents(-refund.amount_value)) ?? candidates[0];
+				if (refunded) refunded.remaining = Math.max(0, refunded.remaining + refund.amount_value);
+			});
 		donations.forEach((d) => {
-			const match = d.comment.match(rgx);
-			if (!match) return;
-			const refunded = donations.find((ref) => ref.timestamp === match[1]);
-			if (refunded) {
-				refunded.can_refund = false;
-				refunded.is_refunded = true;
-			}
+			const isDonation = d.amount_value > 0;
+			d.is_refunded = isDonation && cents(d.remaining) <= 0;
+			const partial = isDonation && !d.is_refunded && cents(d.remaining) < cents(d.amount_value);
+			d.can_refund = isDonation && !d.is_refunded;
+			d.remaining_text = d.remaining.toFixed(2);
+			d.row_class = [
+				d.amount_value < 0 && 'refund',
+				d.is_refunded && 'refunded',
+				partial && 'partially-refunded',
+				!d.counted && 'uncounted',
+			]
+				.filter(Boolean)
+				.join(' ');
+			d.row_title = partial ? `Partially refunded: ${d.remaining_text} ${d.currency} left` : '';
 		});
 
-		const donationsLastPeriod = donations.filter((d) => d.in_period);
+		// Totals are net: refunds take their amount back off.
+		const total = (list: typeof donations) => {
+			const counted = list.filter((d) => d.counted);
+			return {
+				amount: formatMoney(counted.reduce((sum, d) => sum + d.table_amount_value, 0)),
+				count: counted.length,
+			};
+		};
+		const uncounted = donations.filter((d) => !d.counted);
+		const allTime = total(donations);
+		const lastPeriod = total(donations.filter((d) => d.in_period));
 
 		return {
 			members,
@@ -583,22 +642,15 @@ export class Dashboard extends Application {
 				membersTotal: members.length,
 				membersLastPeriod: members.filter((m) => m.last_login_value > since).length,
 				membersDonatedLastPeriod: members.filter((m) => m.donated > 0).length,
-				donationsTotal: donations
-					.filter((d) => d.amount_value > 0 && d.currency in this.rates.rates)
-					.reduce((a, b) => a + +b.amount / this.rates.rates[b.currency], 0)
-					.toLocaleString('en-US', {
-						style: 'currency',
-						currency: membershipLevels.baseCurrency,
-					}),
-				donationsLength: donations.length,
-				donationsLastPeriod: donationsLastPeriod
-					.filter((d) => d.amount_value > 0 && d.currency in this.rates.rates)
-					.reduce((a, b) => a + +b.amount / this.rates.rates[b.currency], 0)
-					.toLocaleString('en-US', {
-						style: 'currency',
-						currency: membershipLevels.baseCurrency,
-					}),
-				donationsLastPeriodLength: donationsLastPeriod.length,
+				donationsTotal: allTime.amount,
+				donationsLength: allTime.count,
+				donationsLastPeriod: lastPeriod.amount,
+				donationsLastPeriodLength: lastPeriod.count,
+				uncountedLength: uncounted.length,
+				uncountedCurrencies: [...new Set(uncounted.map((d) => d.currency))].join(', '),
+				baseCurrency,
+				ratesAvailable,
+				ratesDate: rates.date,
 			},
 		};
 	}
@@ -620,12 +672,17 @@ export class Dashboard extends Application {
 			target.textContent = rows.length.toLocaleString('en-US');
 			return;
 		}
-		const total = rows.reduce((sum, tr) => sum + Number(tr.dataset.tableAmount ?? 0), 0);
+		// Same rules as the summary totals: net, and without donations that cannot be converted.
+		const counted = rows.filter((tr) => tr.dataset.counted !== 'false');
+		const total = counted.reduce((sum, tr) => sum + Number(tr.dataset.tableAmount ?? 0), 0);
 		const totalParsed = total.toLocaleString('en-US', {
 			style: 'currency',
 			currency: getSetting('membershipLevels').baseCurrency,
 		});
-		target.textContent = `${totalParsed} (${rows.length.toLocaleString('en-US')})`;
+		const uncounted = rows.length - counted.length;
+		target.textContent = `${totalParsed} (${counted.length.toLocaleString('en-US')})${
+			uncounted ? ` + ${uncounted.toLocaleString('en-US')} not counted` : ''
+		}`;
 	}
 
 	protected override _onSearchFilter(_ev: KeyboardEvent, _query: string, rgx: RegExp, html: HTMLElement): void {
@@ -671,8 +728,9 @@ export class Dashboard extends Application {
 		const period = periods[value as keyof typeof periods];
 		const since = Date.now() - parseTime(period)!;
 		target.find<HTMLTableRowElement>('tbody tr').each((_idx, tr) => {
-			const timestamp = new Date(tr.dataset.timestamp!).getTime();
-			const show = timestamp > since;
+			// Milliseconds since the epoch: the text shown in the row is UTC without a zone, and
+			// would be read back as local time.
+			const show = Number(tr.dataset.timestamp) > since;
 			if (show) tr.dataset.periodHidden = 'false';
 			else tr.dataset.periodHidden = 'true';
 			this.updateTableRowVisibility(tr);
